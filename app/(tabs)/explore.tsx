@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   ActivityIndicator,
   useColorScheme,
+  TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -13,10 +14,17 @@ import {
   ChevronRight,
   PieChart as PieIcon,
   BarChart3,
-  Activity,
+  Calendar,
 } from "lucide-react-native";
 import { auth, db } from "../../FirebaseConfig";
-import { doc, onSnapshot } from "firebase/firestore";
+import {
+  doc,
+  onSnapshot,
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
 import { Colors } from "../../constants/theme";
 
 import { PieChart, BarChart } from "react-native-gifted-charts";
@@ -31,16 +39,19 @@ import Animated, {
 import { useMonth } from "@/context/MonthContext";
 
 export default function Explore() {
-  const {selectedMonthId, setSelectedMonthId} = useMonth();
+  const { selectedMonthId, setSelectedMonthId } = useMonth();
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [budget, setBudget] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [yearlyData, setYearlyData] = useState<any[]>([]);
+  const [loadingMonth, setLoadingMonth] = useState(true);
+  const [loadingYear, setLoadingYear] = useState(false);
 
   const offset = useSharedValue(0);
-
   const opacity = useSharedValue(1);
   const colorScheme = useColorScheme() ?? "dark";
   const theme = Colors[colorScheme];
-  const styles = createStyles(theme);
+
+  const styles = useMemo(() => createStyles(theme), [theme]);
 
   const changeMonth = (direction: number) => {
     opacity.value = 0;
@@ -67,7 +78,6 @@ export default function Explore() {
     });
 
   const animatedStyle = useAnimatedStyle(() => ({
-    flex: 1,
     transform: [{ translateX: offset.value }],
     opacity: opacity.value,
   }));
@@ -75,8 +85,7 @@ export default function Explore() {
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
-    setLoading(true);
-
+    setLoadingMonth(true);
     const budgetRef = doc(
       db,
       "users",
@@ -87,9 +96,66 @@ export default function Explore() {
     return onSnapshot(budgetRef, (docSnap) => {
       if (docSnap.exists()) setBudget(docSnap.data());
       else setBudget(null);
-      setLoading(false);
+      setLoadingMonth(false);
     });
   }, [selectedMonthId]);
+
+  useEffect(() => {
+    const fetchYearly = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+      setLoadingYear(true);
+
+      const start = `${selectedYear}-01`;
+      const end = `${selectedYear}-12`;
+      const q = query(
+        collection(db, "users", user.uid, "monthlyBudgets"),
+        where("__name__", ">=", start),
+        where("__name__", "<=", end),
+      );
+
+      const querySnap = await getDocs(q);
+      const months = [
+        "Jan",
+        "Fev",
+        "Mar",
+        "Abr",
+        "Mai",
+        "Jun",
+        "Jul",
+        "Ago",
+        "Set",
+        "Out",
+        "Nov",
+        "Dez",
+      ];
+
+      const formatted = months.map((mLabel, i) => {
+        const mIdx = (i + 1).toString().padStart(2, "0");
+        const data = querySnap.docs
+          .find((d) => d.id === `${selectedYear}-${mIdx}`)
+          ?.data();
+        const exp =
+          data?.categories?.reduce(
+            (acc: number, c: any) => acc + (c.value || 0),
+            0,
+          ) || 0;
+
+        return {
+          value: exp,
+          label: mLabel,
+          frontColor: theme.error,
+          topLabelComponent: () => (
+            <Text style={styles.barTopValue}>R$ {exp.toFixed(0)}</Text>
+          ),
+        };
+      });
+
+      setYearlyData(formatted);
+      setLoadingYear(false);
+    };
+    fetchYearly();
+  }, [selectedYear, theme.error, styles.barTopValue]);
 
   const pieData =
     budget?.categories
@@ -127,91 +193,80 @@ export default function Explore() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.selectorContainer}>
-        <ChevronLeft
-          color={theme.primary}
-          size={28}
-          onPress={() => changeMonth(-1)}
-        />
+        <TouchableOpacity onPress={() => changeMonth(-1)}>
+          <ChevronLeft color={theme.primary} size={28} />
+        </TouchableOpacity>
         <Text style={styles.monthTitle}>
           {formatMonthTitle(selectedMonthId)}
         </Text>
-        <ChevronRight
-          color={theme.primary}
-          size={28}
-          onPress={() => changeMonth(1)}
-        />
+        <TouchableOpacity onPress={() => changeMonth(1)}>
+          <ChevronRight color={theme.primary} size={28} />
+        </TouchableOpacity>
       </View>
 
-      <GestureDetector gesture={swipeGesture}>
-        <Animated.View style={animatedStyle}>
-          <ScrollView
-            contentContainerStyle={styles.scroll}
-            showsVerticalScrollIndicator={false}
-          >
-            {loading ? (
-              <ActivityIndicator
-                color={theme.primary}
-                size="large"
-                style={{ marginTop: 50 }}
-              />
-            ) : !budget || (budget.income === 0 && totalExpenses === 0) ? (
-              <View style={styles.emptyContainer}>
-                <Activity size={40} color={theme.secondary} />
-                <Text style={styles.emptyText}>Sem dados para este mês.</Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
+        <GestureDetector gesture={swipeGesture}>
+          <Animated.View style={[{ flex: 1 }, animatedStyle]}>
+            <View style={styles.chartCard}>
+              <View style={styles.chartHeader}>
+                <PieIcon size={20} color={theme.primary} />
+                <Text style={styles.chartLabel}>Distribuição Mensal</Text>
               </View>
-            ) : (
-              <>
-                <View style={styles.chartCard}>
-                  <View style={styles.chartHeader}>
-                    <PieIcon size={20} color={theme.primary} />
-                    <Text style={styles.chartLabel}>
-                      Distribuição por Categoria
-                    </Text>
-                  </View>
-                  <PieChart
-                    data={pieData}
-                    donut
-                    radius={110}
-                    innerRadius={75}
-                    innerCircleColor={theme.card}
-                    centerLabelComponent={() => (
-                      <View style={{ alignItems: "center" }}>
-                        <Text
-                          style={{
-                            color: theme.text,
-                            fontSize: 18,
-                            fontWeight: "bold",
-                          }}
-                        >
-                          {(
-                            (totalExpenses / (budget.income || 1)) *
-                            100
-                          ).toFixed(0)}
-                          %
-                        </Text>
-                        <Text style={{ color: theme.secondary, fontSize: 10 }}>
-                          Comprometido
-                        </Text>
-                      </View>
-                    )}
-                  />
-                  <View style={styles.legendGrid}>
-                    {pieData.map((item: any, i: number) => (
-                      <View key={i} style={styles.legendItem}>
-                        <View
-                          style={[styles.dot, { backgroundColor: item.color }]}
-                        />
-                        <Text style={styles.legendText}>{item.text}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
+              <View style={styles.fixedContentArea}>
+                {loadingMonth ? (
+                  <ActivityIndicator color={theme.primary} />
+                ) : (
+                  <>
+                    <PieChart
+                      data={pieData}
+                      donut
+                      radius={105}
+                      innerRadius={70}
+                      innerCircleColor={theme.card}
+                      showGradient
+                      centerLabelComponent={() => (
+                        <View style={{ alignItems: "center" }}>
+                          <Text style={styles.centerValue}>
+                            {(
+                              (totalExpenses / (budget?.income || 1)) *
+                              100
+                            ).toFixed(0)}
+                            %
+                          </Text>
+                          <Text style={styles.centerLabel}>Gasto</Text>
+                        </View>
+                      )}
+                    />
+                    <View style={styles.legendGrid}>
+                      {pieData.map((item: any, i: number) => (
+                        <View key={i} style={styles.legendItem}>
+                          <View
+                            style={[
+                              styles.dot,
+                              { backgroundColor: item.color },
+                            ]}
+                          />
+                          <Text style={styles.legendText}>{item.text}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </>
+                )}
+              </View>
+            </View>
 
-                <View style={styles.chartCard}>
-                  <View style={styles.chartHeader}>
-                    <BarChart3 size={20} color={theme.primary} />
-                    <Text style={styles.chartLabel}>Balanço Geral</Text>
-                  </View>
+            <View style={styles.chartCard}>
+              <View style={styles.chartHeader}>
+                <BarChart3 size={20} color={theme.primary} />
+                <Text style={styles.chartLabel}>Renda x Gastos</Text>
+              </View>
+              <View style={styles.fixedBarArea}>
+                {loadingMonth ? (
+                  <ActivityIndicator color={theme.primary} />
+                ) : (
                   <BarChart
                     data={barData}
                     barWidth={60}
@@ -226,12 +281,55 @@ export default function Explore() {
                       fontWeight: "bold",
                     }}
                   />
-                </View>
-              </>
+                )}
+              </View>
+            </View>
+          </Animated.View>
+        </GestureDetector>
+
+        {/* CARD ANUAL - BLINDADO CONTRA PULO */}
+        <View style={styles.chartCard}>
+          <View style={styles.yearSelector}>
+            <TouchableOpacity onPress={() => setSelectedYear((y) => y - 1)}>
+              <ChevronLeft color={theme.primary} />
+            </TouchableOpacity>
+            <View style={styles.yearTitleRow}>
+              <Calendar size={18} color={theme.primary} />
+              <Text style={styles.yearTitle}>Resumo {selectedYear}</Text>
+            </View>
+            <TouchableOpacity onPress={() => setSelectedYear((y) => y + 1)}>
+              <ChevronRight color={theme.primary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.fixedYearlyArea}>
+            {loadingYear ? (
+              <View style={styles.loadingInner}>
+                <ActivityIndicator color={theme.primary} size="large" />
+              </View>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <BarChart
+                  data={yearlyData}
+                  height={200}
+                  barWidth={30}
+                  spacing={20}
+                  initialSpacing={10}
+                  hideRules
+                  yAxisThickness={0}
+                  xAxisThickness={0}
+                  yAxisTextStyle={{ color: theme.secondary, fontSize: 10 }}
+                  xAxisLabelTextStyle={{
+                    color: theme.text,
+                    fontSize: 12,
+                    fontWeight: "bold",
+                  }}
+                />
+              </ScrollView>
             )}
-          </ScrollView>
-        </Animated.View>
-      </GestureDetector>
+          </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -252,7 +350,7 @@ const createStyles = (theme: any) =>
       fontWeight: "bold",
       textTransform: "capitalize",
     },
-    scroll: { padding: 20, paddingBottom: 100 },
+    scroll: { padding: 20, paddingBottom: 50 },
     chartCard: {
       backgroundColor: theme.card,
       borderRadius: 25,
@@ -260,28 +358,56 @@ const createStyles = (theme: any) =>
       marginBottom: 20,
       borderWidth: 1,
       borderColor: theme.border,
-      alignItems: "center",
     },
     chartHeader: {
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
-      alignSelf: "flex-start",
       marginBottom: 25,
     },
     chartLabel: { color: theme.secondary, fontSize: 14, fontWeight: "600" },
+
+    fixedContentArea: {
+      height: 320,
+      justifyContent: "center",
+      alignItems: "center",
+      width: "100%",
+    },
+    fixedBarArea: {
+      height: 220,
+      justifyContent: "center",
+      alignItems: "center",
+      width: "100%",
+    },
+    fixedYearlyArea: { height: 240, width: "100%" },
+    loadingInner: {
+      height: 240,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+
+    centerValue: { color: theme.primary, fontSize: 24, fontWeight: "bold" },
+    centerLabel: { color: theme.secondary, fontSize: 11 },
     legendGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
       justifyContent: "center",
       gap: 15,
-      marginTop: 25,
+      marginTop: 20,
     },
     legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-    dot: { width: 10, height: 10, borderRadius: 5 },
-    legendText: { color: theme.secondary, fontSize: 12 },
-    emptyContainer: { alignItems: "center", marginTop: 100 },
-    emptyText: { color: theme.secondary, marginTop: 15, fontSize: 16 },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    legendText: { color: theme.secondary, fontSize: 11 },
+    yearSelector: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      width: "100%",
+      alignItems: "center",
+      marginBottom: 20,
+    },
+    yearTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    yearTitle: { color: theme.text, fontSize: 18, fontWeight: "bold" },
+    barTopValue: { color: theme.secondary, fontSize: 8 },
   });
 
 const formatMonthTitle = (id: string) => {
