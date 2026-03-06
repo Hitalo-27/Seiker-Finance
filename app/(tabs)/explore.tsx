@@ -28,11 +28,10 @@ import Animated, {
   withSpring,
   runOnJS,
 } from "react-native-reanimated";
+import { useMonth } from "@/context/MonthContext";
 
 export default function Explore() {
-  const [selectedMonthId, setSelectedMonthId] = useState(
-    new Date().toISOString().slice(0, 7),
-  );
+  const {selectedMonthId, setSelectedMonthId} = useMonth();
   const [budget, setBudget] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
