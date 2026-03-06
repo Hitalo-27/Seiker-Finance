@@ -1,13 +1,14 @@
 import React from "react";
 import { Tabs } from "expo-router";
-import { useColorScheme } from "react-native";
 import { Colors } from "@/constants/theme";
 import { Home, PieChart } from "lucide-react-native";
 import { MonthProvider } from "../../context/MonthContext";
+import { useTheme } from "@/context/ThemeContext";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme() ?? "dark";
-  const theme = Colors[colorScheme];
+  const { theme: themeMode } = useTheme(); 
+  
+  const theme = Colors[themeMode as keyof typeof Colors];
 
   return (
     <MonthProvider>

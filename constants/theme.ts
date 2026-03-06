@@ -4,18 +4,18 @@ const tintColorLight = '#0a7ea4';
 const tintColorDark = '#fff';
 
 export const Colors = {
-  light: {
-    background: '#fff',
+ light: {
+    background: '#F5F7FA',      // Um cinza bem clarinho, mais moderno que o branco puro
     tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
+    icon: '#64748B',            // Slate grey para ícones
+    tabIconDefault: '#94A3B8',
     tabIconSelected: tintColorLight,
-    card: '#1B2126',
-    primary: '#00F5FF',
-    secondary: '#8B949E',
-    text: '#11181C',
-    error: '#FF5252',
-    border: '#2C343B'
+    card: '#FFFFFF',            // Cards brancos para destacar do fundo
+    primary: '#00ACC1',         // Ciano "vibrante mas legível"
+    secondary: '#71717A',       // Texto secundário (cinza médio)
+    text: '#121417',            // Quase preto para máximo contraste
+    error: '#E53935',           // Vermelho um pouco mais fechado
+    border: '#E2E8F0'           // Bordas sutis
   },
   dark: {
     background: '#0B0E11',

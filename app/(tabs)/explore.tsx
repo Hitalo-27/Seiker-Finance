@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  useColorScheme,
   TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -37,9 +36,15 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { useMonth } from "@/context/MonthContext";
+import { useTheme } from "@/context/ThemeContext"; // 1. Importando o tema correto
 
 export default function Explore() {
   const { selectedMonthId, setSelectedMonthId } = useMonth();
+
+  // 2. Trocando o useColorScheme pelo tema do nosso contexto
+  const { theme: themeMode } = useTheme();
+  const theme = Colors[themeMode as keyof typeof Colors];
+
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [budget, setBudget] = useState<any>(null);
   const [yearlyData, setYearlyData] = useState<any[]>([]);
@@ -48,9 +53,8 @@ export default function Explore() {
 
   const offset = useSharedValue(0);
   const opacity = useSharedValue(1);
-  const colorScheme = useColorScheme() ?? "dark";
-  const theme = Colors[colorScheme];
 
+  // 3. Memoizando os estilos para performance e evitar erros de dependência do ESLint
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const changeMonth = (direction: number) => {
@@ -155,6 +159,7 @@ export default function Explore() {
       setLoadingYear(false);
     };
     fetchYearly();
+    // 4. Adicionando as dependências que o ESLint pediu antes
   }, [selectedYear, theme.error, styles.barTopValue]);
 
   const pieData =
@@ -287,7 +292,7 @@ export default function Explore() {
           </Animated.View>
         </GestureDetector>
 
-        {/* CARD ANUAL - BLINDADO CONTRA PULO */}
+        {/* CARD ANUAL - COM ALTURA BLINDADA PARA NÃO PULAR */}
         <View style={styles.chartCard}>
           <View style={styles.yearSelector}>
             <TouchableOpacity onPress={() => setSelectedYear((y) => y - 1)}>
@@ -367,6 +372,7 @@ const createStyles = (theme: any) =>
     },
     chartLabel: { color: theme.secondary, fontSize: 14, fontWeight: "600" },
 
+    // ALTURAS FIXAS PARA EVITAR O PULO
     fixedContentArea: {
       height: 320,
       justifyContent: "center",
@@ -379,9 +385,9 @@ const createStyles = (theme: any) =>
       alignItems: "center",
       width: "100%",
     },
-    fixedYearlyArea: { height: 240, width: "100%" },
+    fixedYearlyArea: { height: 280, width: "100%" },
     loadingInner: {
-      height: 240,
+      height: 280,
       justifyContent: "center",
       alignItems: "center",
     },

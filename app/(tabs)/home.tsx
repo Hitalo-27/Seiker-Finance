@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
-  useColorScheme,
   FlatList,
   Alert,
 } from "react-native";
@@ -41,6 +40,7 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { useMonth } from "@/context/MonthContext";
+import { useTheme } from "@/context/ThemeContext"; // 1. Importando o tema correto
 
 const ICON_LIST = [
   { name: "Target", lib: Target },
@@ -71,7 +71,13 @@ const PRESET_COLORS = [
 ];
 
 export default function Home() {
-  const {selectedMonthId, setSelectedMonthId} = useMonth();
+  const { selectedMonthId, setSelectedMonthId } = useMonth();
+
+  const { theme: themeMode } = useTheme();
+  const theme = Colors[themeMode as keyof typeof Colors];
+
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
   const [budget, setBudget] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -80,10 +86,6 @@ export default function Home() {
 
   const offset = useSharedValue(0);
   const opacity = useSharedValue(1);
-
-  const colorScheme = useColorScheme() ?? "dark";
-  const theme = Colors[colorScheme];
-  const styles = createStyles(theme);
 
   const changeMonth = (direction: number) => {
     opacity.value = 0;
@@ -314,6 +316,7 @@ export default function Home() {
                       key={cat.id}
                       cat={cat}
                       styles={styles}
+                      theme={theme}
                       onPress={() => {
                         setEditItem(cat);
                         setIsNewCategory(false);
@@ -475,9 +478,9 @@ export default function Home() {
   );
 }
 
-function CategoryCard({ cat, styles, onPress }: any) {
+function CategoryCard({ cat, styles, theme, onPress }: any) {
   const IconComp = ICON_LIST.find((i) => i.name === cat.icon)?.lib || Target;
-  const color = cat.color || "#FFFFFF";
+  const color = cat.color || theme.text;
   return (
     <TouchableOpacity
       style={[styles.card, { borderColor: color }]}

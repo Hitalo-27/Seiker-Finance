@@ -11,19 +11,21 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  useColorScheme,
 } from "react-native";
 import { auth } from "../FirebaseConfig";
 import { Colors } from "../constants/theme";
+import { useTheme } from "@/context/ThemeContext"; // 1. Importando o contexto
+import { Sun, Moon } from "lucide-react-native"; // 2. Importando os ícones
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
 
-  const colorScheme = useColorScheme() ?? "dark";
-  const theme = Colors[colorScheme];
-  const styles = createStyles(theme);
+  // 3. Trocando o useColorScheme pelo useTheme
+  const { theme, toggleTheme } = useTheme(); 
+  const activeTheme = Colors[theme as keyof typeof Colors];
+  const styles = createStyles(activeTheme);
 
   const handleAuth = async (type: "login" | "register") => {
     try {
@@ -40,6 +42,18 @@ export default function Login() {
 
   return (
     <View style={styles.container}>
+      {/* 4. Botão de trocar tema adicionado no topo */}
+      <TouchableOpacity 
+        onPress={toggleTheme} 
+        style={styles.themeToggle}
+      >
+        {theme === 'dark' ? (
+          <Sun color={activeTheme.primary} size={28} />
+        ) : (
+          <Moon color={activeTheme.primary} size={28} />
+        )}
+      </TouchableOpacity>
+
       <Text style={styles.logoText}>SEIKER</Text>
       <Text style={styles.subTitle}>FINANCE</Text>
 
@@ -47,13 +61,14 @@ export default function Login() {
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor={theme.secondary}
+          placeholderTextColor={activeTheme.secondary}
           onChangeText={setEmail}
+          autoCapitalize="none"
         />
         <TextInput
           style={styles.input}
           placeholder="Senha"
-          placeholderTextColor={theme.secondary}
+          placeholderTextColor={activeTheme.secondary}
           secureTextEntry
           onChangeText={setPassword}
         />
@@ -76,23 +91,30 @@ export default function Login() {
   );
 }
 
-const createStyles = (theme: any) =>
+const createStyles = (activeTheme: any) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.background,
+      backgroundColor: activeTheme.background,
       justifyContent: "center",
       padding: 30,
     },
+    // Estilo do botão de tema
+    themeToggle: {
+      position: 'absolute',
+      top: 60,
+      right: 30,
+      padding: 10,
+    },
     logoText: {
-      color: theme.primary,
+      color: activeTheme.primary,
       fontSize: 42,
       fontWeight: "bold",
       textAlign: "center",
       letterSpacing: 5,
     },
     subTitle: {
-      color: theme.text,
+      color: activeTheme.text,
       fontSize: 18,
       textAlign: "center",
       marginBottom: 50,
@@ -100,26 +122,26 @@ const createStyles = (theme: any) =>
     },
     inputContainer: { marginBottom: 30 },
     input: {
-      backgroundColor: theme.card,
-      color: theme.text,
+      backgroundColor: activeTheme.card,
+      color: activeTheme.text,
       padding: 20,
       borderRadius: 12,
       marginBottom: 15,
       borderWidth: 1,
-      borderColor: theme.border,
+      borderColor: activeTheme.border,
     },
     mainButton: {
-      backgroundColor: theme.primary,
+      backgroundColor: activeTheme.primary,
       padding: 20,
       borderRadius: 12,
       alignItems: "center",
-      shadowColor: theme.primary,
+      shadowColor: activeTheme.primary,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.8,
       shadowRadius: 10,
       elevation: 10,
     },
-    buttonText: { color: theme.background, fontWeight: "bold", fontSize: 16 },
+    buttonText: { color: activeTheme.background, fontWeight: "bold", fontSize: 16 },
     secondaryButton: { marginTop: 20, alignItems: "center" },
-    secondaryButtonText: { color: theme.primary, fontSize: 14 },
+    secondaryButtonText: { color: activeTheme.primary, fontSize: 14 },
   });
