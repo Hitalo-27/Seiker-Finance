@@ -10,10 +10,14 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  useColorScheme,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import { Colors } from "../constants/theme";
 import { auth, db } from "../FirebaseConfig";
+import { useTheme } from "@/context/ThemeContext";
 
 export default function Register() {
   const [name, setName] = useState("");
@@ -22,9 +26,9 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const colorScheme = useColorScheme() ?? "dark";
-  const theme = Colors[colorScheme];
-  const styles = createStyles(theme);
+  const { theme } = useTheme();
+  const activeTheme = Colors[theme as keyof typeof Colors];
+  const styles = createStyles(activeTheme);
 
   const router = useRouter();
 
@@ -69,86 +73,106 @@ export default function Register() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>NOVA CONTA</Text>
-      <Text style={styles.subTitle}>
-        Inicie sua organização financeira no Seiker
-      </Text>
-
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Nome Completo"
-          placeholderTextColor={theme.secondary}
-          value={name}
-          onChangeText={setName}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Seu melhor Email"
-          placeholderTextColor={theme.secondary}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Senha"
-          placeholderTextColor={theme.secondary}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Confirmar Senha"
-          placeholderTextColor={theme.secondary}
-          secureTextEntry
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-        />
-      </View>
-
-      <TouchableOpacity
-        style={[styles.mainButton, loading && { opacity: 0.7 }]}
-        onPress={handleRegister}
-        disabled={loading}
+    <View style={{ flex: 1, backgroundColor: activeTheme.background }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "padding"}
+        keyboardVerticalOffset={Platform.OS === "android" ? -60 : 0}
       >
-        <Text style={styles.buttonText}>
-          {loading ? "PROCESSANDO..." : "FINALIZAR CADASTRO"}
-        </Text>
-      </TouchableOpacity>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContainer}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Text style={styles.title}>NOVA CONTA</Text>
+            <Text style={styles.subTitle}>
+              Inicie sua organização financeira no Seiker
+            </Text>
 
-      <TouchableOpacity
-        style={styles.secondaryButton}
-        onPress={() => router.back()}
-      >
-        <Text style={styles.secondaryButtonText}>
-          Já tenho conta? Voltar ao Login
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Nome Completo"
+                placeholderTextColor={activeTheme.secondary}
+                value={name}
+                onChangeText={setName}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Seu melhor Email"
+                placeholderTextColor={activeTheme.secondary}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Senha"
+                placeholderTextColor={activeTheme.secondary}
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Confirmar Senha"
+                placeholderTextColor={activeTheme.secondary}
+                secureTextEntry
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.mainButton, loading && { opacity: 0.7 }]}
+              onPress={handleRegister}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? "PROCESSANDO..." : "FINALIZAR CADASTRO"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.secondaryButton}
+              onPress={() => router.back()}
+            >
+              <Text style={styles.secondaryButtonText}>
+                Já tenho conta? Voltar ao Login
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
-const createStyles = (theme: any) =>
+const createStyles = (activeTheme: any) =>
   StyleSheet.create({
-    container: {
+    scrollContainer: {
       flexGrow: 1,
-      backgroundColor: theme.background,
       justifyContent: "center",
       padding: 30,
     },
+    themeToggle: {
+      position: "absolute",
+      top: 60,
+      right: 30,
+      padding: 10,
+      zIndex: 10,
+    },
     title: {
-      color: theme.primary,
+      color: activeTheme.primary,
       fontSize: 32,
       fontWeight: "bold",
       textAlign: "center",
       letterSpacing: 2,
     },
     subTitle: {
-      color: theme.text,
+      color: activeTheme.text,
       fontSize: 14,
       textAlign: "center",
       marginBottom: 40,
@@ -156,26 +180,36 @@ const createStyles = (theme: any) =>
     },
     inputContainer: { marginBottom: 20 },
     input: {
-      backgroundColor: theme.card,
-      color: theme.text,
+      backgroundColor: activeTheme.card,
+      color: activeTheme.text,
       padding: 18,
       borderRadius: 12,
       marginBottom: 15,
       borderWidth: 1,
-      borderColor: theme.border,
+      borderColor: activeTheme.border,
     },
     mainButton: {
-      backgroundColor: theme.primary,
+      backgroundColor: activeTheme.primary,
       padding: 20,
       borderRadius: 12,
       alignItems: "center",
-      shadowColor: theme.primary,
+      shadowColor: activeTheme.primary,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.5,
       shadowRadius: 10,
       elevation: 8,
     },
-    buttonText: { color: theme.background, fontWeight: "bold", fontSize: 16 },
-    secondaryButton: { marginTop: 25, alignItems: "center" },
-    secondaryButtonText: { color: theme.secondary, fontSize: 14 },
+    buttonText: {
+      color: activeTheme.background,
+      fontWeight: "bold",
+      fontSize: 16,
+    },
+    secondaryButton: {
+      marginTop: 25,
+      alignItems: "center",
+    },
+    secondaryButtonText: {
+      color: activeTheme.secondary,
+      fontSize: 14,
+    },
   });
