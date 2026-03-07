@@ -60,7 +60,6 @@ export default function Register() {
         name: name,
         email: email,
         createdAt: new Date().toISOString(),
-        balance: 0,
       });
 
       Alert.alert("Sucesso", "Conta criada com sucesso!");
