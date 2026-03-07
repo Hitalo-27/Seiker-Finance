@@ -10,6 +10,8 @@ import {
   TextInput,
   FlatList,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -40,7 +42,7 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { useMonth } from "@/context/MonthContext";
-import { useTheme } from "@/context/ThemeContext"; // 1. Importando o tema correto
+import { useTheme } from "@/context/ThemeContext";
 
 const ICON_LIST = [
   { name: "Target", lib: Target },
@@ -72,20 +74,43 @@ const PRESET_COLORS = [
 
 export default function Home() {
   const { selectedMonthId, setSelectedMonthId } = useMonth();
-
   const { theme: themeMode } = useTheme();
   const theme = Colors[themeMode as keyof typeof Colors];
-
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [budget, setBudget] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
   const [isNewCategory, setIsNewCategory] = useState(false);
+  const [repeatMode, setRepeatMode] = useState<"split" | "replicate">("split");
+  const [inputValue, setInputValue] = useState("");
 
   const offset = useSharedValue(0);
   const opacity = useSharedValue(1);
+
+  const openEditModal = (item: any, isNew: boolean) => {
+    const savedMonths = item.totalMonths || 1;
+    const savedMode = item.repeatMode || "split";
+
+    const totalValue =
+      savedMode === "split" ? item.value * savedMonths : item.value;
+
+    setEditItem({
+      ...item,
+      value: totalValue,
+      installments: isNew ? "1" : String(savedMonths),
+    });
+
+    setIsNewCategory(isNew);
+    setRepeatMode(savedMode);
+
+    setInputValue(
+      totalValue > 0 ? String(totalValue.toFixed(2)).replace(".", ",") : "",
+    );
+    setModalVisible(true);
+  };
 
   const changeMonth = (direction: number) => {
     opacity.value = 0;
@@ -167,46 +192,94 @@ export default function Home() {
     const user = auth.currentUser;
     if (!user || !editItem) return;
 
-    const numInstallments = parseInt(editItem.installments) || 1;
-    const dividedValue = editItem.value / numInstallments;
-    const groupId = editItem.groupId || Date.now().toString();
+    setIsSaving(true);
 
-    for (let i = 0; i < numInstallments; i++) {
-      const [y, m] = selectedMonthId.split("-").map(Number);
-      const date = new Date(y, m - 1 + i, 1);
-      const targetMonthId = date.toISOString().slice(0, 7);
+    try {
+      const oldMonths = editItem.totalMonths || 1;
+      const newMonths = parseInt(editItem.installments) || 1;
+      const groupId = editItem.groupId || Date.now().toString();
 
-      const ref = doc(db, "users", user.uid, "monthlyBudgets", targetMonthId);
-      const docSnap = await getDoc(ref);
+      const valuePerMonth =
+        repeatMode === "split" ? editItem.value / newMonths : editItem.value;
 
-      const categoryData = {
-        ...editItem,
-        value: dividedValue,
-        id: isNewCategory && i === 0 ? groupId : editItem.id || groupId,
-        groupId: groupId,
-        installmentLabel:
-          numInstallments > 1 ? `${i + 1}/${numInstallments}` : null,
-      };
-      delete categoryData.installments;
+      for (let i = 0; i < newMonths; i++) {
+        const [y, m] = selectedMonthId.split("-").map(Number);
+        const date = new Date(y, m - 1 + i, 1);
+        const targetMonthId = date.toISOString().slice(0, 7);
+        const ref = doc(db, "users", user.uid, "monthlyBudgets", targetMonthId);
+        const docSnap = await getDoc(ref);
 
-      if (editItem.id === "salary") {
-        await updateDoc(ref, { income: editItem.value });
-      } else {
-        if (!docSnap.exists()) {
-          await setDoc(ref, { income: 0, categories: [categoryData] });
+        const categoryData = {
+          ...editItem,
+          value: valuePerMonth,
+          id: isNewCategory && i === 0 ? groupId : editItem.id || groupId,
+          groupId: groupId,
+          totalMonths: newMonths,
+          repeatMode: repeatMode,
+          installmentLabel:
+            newMonths > 1
+              ? repeatMode === "split"
+                ? `${i + 1}/${newMonths}`
+                : "Fixo"
+              : null,
+        };
+        delete categoryData.installments;
+
+        if (editItem.id === "salary") {
+          await updateDoc(ref, { income: editItem.value });
         } else {
-          const data = docSnap.data();
-          let cats = [...(data.categories || [])];
-          if (isNewCategory) cats.push(categoryData);
-          else
-            cats = cats.map((c: any) =>
-              c.id === editItem.id ? categoryData : c,
+          if (!docSnap.exists()) {
+            await setDoc(ref, { income: 0, categories: [categoryData] });
+          } else {
+            const data = docSnap.data();
+            let cats = [...(data.categories || [])];
+            const exists = cats.find(
+              (c) => c.id === categoryData.id || c.groupId === groupId,
             );
-          await updateDoc(ref, { categories: cats });
+
+            if (exists) {
+              cats = cats.map((c: any) =>
+                c.id === categoryData.id || c.groupId === groupId
+                  ? categoryData
+                  : c,
+              );
+            } else {
+              cats.push(categoryData);
+            }
+            await updateDoc(ref, { categories: cats });
+          }
         }
       }
+
+      if (!isNewCategory && newMonths < oldMonths) {
+        for (let i = newMonths; i < oldMonths; i++) {
+          const [y, m] = selectedMonthId.split("-").map(Number);
+          const date = new Date(y, m - 1 + i, 1);
+          const targetMonthId = date.toISOString().slice(0, 7);
+          const ref = doc(
+            db,
+            "users",
+            user.uid,
+            "monthlyBudgets",
+            targetMonthId,
+          );
+          const docSnap = await getDoc(ref);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            const updatedCats = data.categories.filter(
+              (c: any) => c.groupId !== groupId && c.id !== editItem.id,
+            );
+            await updateDoc(ref, { categories: updatedCats });
+          }
+        }
+      }
+
+      setModalVisible(false);
+    } catch (error) {
+      Alert.alert("Erro", "Erro ao sincronizar dados.");
+    } finally {
+      setIsSaving(false);
     }
-    setModalVisible(false);
   };
 
   const handleDelete = async () => {
@@ -244,6 +317,7 @@ export default function Home() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
+      {/* ... Cabeçalho de Meses igual ao anterior ... */}
       <View style={styles.selectorContainer}>
         <TouchableOpacity onPress={() => changeMonth(-1)}>
           <ChevronLeft color={theme.primary} size={28} />
@@ -290,19 +364,21 @@ export default function Home() {
                 </View>
 
                 <View style={styles.grid}>
+                  {/* Renda Mensal */}
                   <TouchableOpacity
                     style={[styles.card, { borderColor: theme.primary }]}
-                    onPress={() => {
-                      setEditItem({
-                        id: "salary",
-                        name: "Renda Mensal",
-                        value: budget?.income || 0,
-                        color: theme.primary,
-                        icon: "Wallet",
-                      });
-                      setIsNewCategory(false);
-                      setModalVisible(true);
-                    }}
+                    onPress={() =>
+                      openEditModal(
+                        {
+                          id: "salary",
+                          name: "Renda Mensal",
+                          value: budget?.income || 0,
+                          color: theme.primary,
+                          icon: "Wallet",
+                        },
+                        false,
+                      )
+                    }
                   >
                     <Wallet color={theme.primary} size={20} />
                     <Text style={styles.cardTitle}>Renda Mensal</Text>
@@ -311,34 +387,32 @@ export default function Home() {
                     </Text>
                   </TouchableOpacity>
 
+                  {/* Categorias */}
                   {budget?.categories?.map((cat: any) => (
                     <CategoryCard
                       key={cat.id}
                       cat={cat}
                       styles={styles}
                       theme={theme}
-                      onPress={() => {
-                        setEditItem(cat);
-                        setIsNewCategory(false);
-                        setModalVisible(true);
-                      }}
+                      onPress={() => openEditModal(cat, false)}
                     />
                   ))}
                 </View>
 
                 <TouchableOpacity
                   style={styles.addButton}
-                  onPress={() => {
-                    setEditItem({
-                      name: "",
-                      value: 0,
-                      color: "#FFFFFF",
-                      icon: "Target",
-                      installments: "1",
-                    });
-                    setIsNewCategory(true);
-                    setModalVisible(true);
-                  }}
+                  onPress={() =>
+                    openEditModal(
+                      {
+                        name: "",
+                        value: 0,
+                        color: "#FFFFFF",
+                        icon: "Target",
+                        installments: "1",
+                      },
+                      true,
+                    )
+                  }
                 >
                   <Text style={styles.addButtonText}>
                     + Adicionar Categoria
@@ -350,8 +424,12 @@ export default function Home() {
         </Animated.View>
       </GestureDetector>
 
-      <Modal visible={modalVisible} animationType="fade" transparent>
-        <View style={styles.modalOverlay}>
+      {/* MODAL DE EDIÇÃO / CRIAÇÃO */}
+      <Modal visible={modalVisible} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
@@ -376,16 +454,22 @@ export default function Home() {
                 <Text style={styles.label}>Valor Total (R$)</Text>
                 <TextInput
                   style={styles.input}
-                  keyboardType="numeric"
-                  value={String(editItem?.value || "")}
-                  onChangeText={(t) =>
-                    setEditItem({ ...editItem, value: parseFloat(t) || 0 })
-                  }
+                  keyboardType="decimal-pad"
+                  placeholder="0,00"
+                  placeholderTextColor={theme.secondary}
+                  value={inputValue}
+                  onChangeText={(t) => {
+                    const sanitized = t.replace(/[^0-9,.]/g, "");
+                    setInputValue(sanitized);
+                    const numericValue =
+                      parseFloat(sanitized.replace(",", ".")) || 0;
+                    setEditItem({ ...editItem, value: numericValue });
+                  }}
                 />
               </View>
-              {isNewCategory && editItem?.id !== "salary" && (
+              {editItem?.id !== "salary" && (
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.label}>Parcelas</Text>
+                  <Text style={styles.label}>Meses</Text>
                   <TextInput
                     style={styles.input}
                     keyboardType="numeric"
@@ -398,6 +482,44 @@ export default function Home() {
               )}
             </View>
 
+            {editItem?.id !== "salary" && (
+              <View style={styles.repeatSelector}>
+                <TouchableOpacity
+                  style={[
+                    styles.repeatTab,
+                    repeatMode === "split" && styles.repeatTabActive,
+                  ]}
+                  onPress={() => setRepeatMode("split")}
+                >
+                  <Text
+                    style={[
+                      styles.repeatTabText,
+                      repeatMode === "split" && styles.repeatTabTextActive,
+                    ]}
+                  >
+                    Parcelar
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.repeatTab,
+                    repeatMode === "replicate" && styles.repeatTabActive,
+                  ]}
+                  onPress={() => setRepeatMode("replicate")}
+                >
+                  <Text
+                    style={[
+                      styles.repeatTabText,
+                      repeatMode === "replicate" && styles.repeatTabTextActive,
+                    ]}
+                  >
+                    Replicar
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Configurações Visuais e Botão de Salvar igual ao anterior... */}
             {editItem?.id !== "salary" && (
               <>
                 <Text
@@ -454,16 +576,25 @@ export default function Home() {
               </>
             )}
 
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-              <Text style={styles.saveButtonText}>
-                {isNewCategory ? "SALVAR TUDO" : "ATUALIZAR"}
-              </Text>
+            <TouchableOpacity
+              style={[styles.saveButton, isSaving && { opacity: 0.8 }]}
+              onPress={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <ActivityIndicator color={theme.background} />
+              ) : (
+                <Text style={styles.saveButtonText}>
+                  {isNewCategory ? "CONFIRMAR E SALVAR" : "ATUALIZAR"}
+                </Text>
+              )}
             </TouchableOpacity>
 
             {!isNewCategory && editItem?.id !== "salary" && (
               <TouchableOpacity
                 style={styles.deleteButton}
                 onPress={handleDelete}
+                disabled={isSaving}
               >
                 <Trash2 color={theme.error} size={20} />
                 <Text style={{ color: theme.error, fontWeight: "bold" }}>
@@ -472,7 +603,7 @@ export default function Home() {
               </TouchableOpacity>
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -613,4 +744,21 @@ const createStyles = (theme: any) =>
       justifyContent: "center",
       gap: 10,
     },
+
+    repeatSelector: {
+      flexDirection: "row",
+      backgroundColor: theme.background,
+      borderRadius: 12,
+      marginTop: 15,
+      padding: 4,
+    },
+    repeatTab: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: "center",
+      borderRadius: 10,
+    },
+    repeatTabActive: { backgroundColor: theme.primary },
+    repeatTabText: { color: theme.secondary, fontSize: 12, fontWeight: "bold" },
+    repeatTabTextActive: { color: theme.background },
   });
