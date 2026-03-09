@@ -3,7 +3,6 @@ import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import React, { useState } from "react";
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,6 +17,7 @@ import {
 import { Colors } from "../constants/theme";
 import { auth, db } from "../FirebaseConfig";
 import { useTheme } from "@/context/ThemeContext";
+import ThemedAlert from "../components/ThemedAlert";
 
 export default function Register() {
   const [name, setName] = useState("");
@@ -25,6 +25,13 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info" as "success" | "error" | "info",
+  });
 
   const { theme } = useTheme();
   const activeTheme = Colors[theme as keyof typeof Colors];
@@ -34,12 +41,22 @@ export default function Register() {
 
   const handleRegister = async () => {
     if (!name || !email || !password) {
-      Alert.alert("Erro", "Preencha todos os campos.");
+      setAlertConfig({
+        visible: true,
+        title: "DADOS INCOMPLETOS",
+        message: "Preencha todos os campos para prosseguir.",
+        type: "error",
+      });
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Erro", "As senhas não coincidem.");
+      setAlertConfig({
+        visible: true,
+        title: "SENHAS DIFERENTES",
+        message: "As senhas digitadas não coincidem.",
+        type: "error",
+      });
       return;
     }
 
@@ -62,10 +79,19 @@ export default function Register() {
         createdAt: new Date().toISOString(),
       });
 
-      Alert.alert("Sucesso", "Conta criada com sucesso!");
-      router.replace("/home");
+      setAlertConfig({
+        visible: true,
+        title: "BEM-VINDO!",
+        message: "Sua conta foi criada com sucesso no Seiker.",
+        type: "success",
+      });
     } catch (error: any) {
-      Alert.alert("Erro ao cadastrar", error.message);
+      setAlertConfig({
+        visible: true,
+        title: "FALHA NO CADASTRO",
+        message: error.message,
+        type: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -145,6 +171,19 @@ export default function Register() {
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
+
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => {
+          setAlertConfig({ ...alertConfig, visible: false });
+          if (alertConfig.type === "success") {
+            router.replace("/home");
+          }
+        }}
+      />
     </View>
   );
 }
@@ -155,13 +194,6 @@ const createStyles = (activeTheme: any) =>
       flexGrow: 1,
       justifyContent: "center",
       padding: 30,
-    },
-    themeToggle: {
-      position: "absolute",
-      top: 60,
-      right: 30,
-      padding: 10,
-      zIndex: 10,
     },
     title: {
       color: activeTheme.primary,
@@ -192,10 +224,6 @@ const createStyles = (activeTheme: any) =>
       padding: 20,
       borderRadius: 12,
       alignItems: "center",
-      shadowColor: activeTheme.primary,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.5,
-      shadowRadius: 10,
       elevation: 8,
     },
     buttonText: {

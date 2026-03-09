@@ -9,7 +9,6 @@ import {
   Modal,
   TextInput,
   FlatList,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
@@ -41,6 +40,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useMonth } from "@/context/MonthContext";
 import { useTheme } from "@/context/ThemeContext";
+import ThemedAlert from "../../components/ThemedAlert";
 
 const ICON_LIST = [
   { name: "Target", lib: Target },
@@ -84,6 +84,14 @@ export default function Home() {
   const [isNewCategory, setIsNewCategory] = useState(false);
   const [repeatMode, setRepeatMode] = useState<"split" | "replicate">("split");
   const [inputValue, setInputValue] = useState("");
+
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: "",
+    message: "",
+    type: "info" as "success" | "error" | "info",
+    onConfirm: () => {},
+  });
 
   const offset = useSharedValue(0);
   const opacity = useSharedValue(1);
@@ -164,16 +172,11 @@ export default function Home() {
 
   const initializeMonth = async (uid: string, monthId: string) => {
     const docRef = doc(db, "users", uid, "monthlyBudgets", monthId);
-
     const userSnap = await getDoc(doc(db, "users", uid));
     const userData = userSnap.data();
-
     const categoriesToUse = userData?.categoryTemplate || [];
 
-    await setDoc(docRef, {
-      income: 0,
-      categories: categoriesToUse,
-    });
+    await setDoc(docRef, { income: 0, categories: categoriesToUse });
   };
 
   const handleSave = async () => {
@@ -260,36 +263,48 @@ export default function Home() {
       }
       setModalVisible(false);
     } catch (error) {
-      Alert.alert("Erro", "Erro ao sincronizar dados.");
+      setAlertConfig({
+        visible: true,
+        title: "FALHA NA SINCRONIA",
+        message: "Ocorreu um erro ao salvar os dados no servidor.",
+        type: "error",
+        onConfirm: () =>
+          setAlertConfig((prev) => ({ ...prev, visible: false })),
+      });
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    Alert.alert("Excluir", `Deseja remover "${editItem.name}"?`, [
-      { text: "Não", style: "cancel" },
-      {
-        text: "Sim",
-        style: "destructive",
-        onPress: async () => {
-          const user = auth.currentUser;
-          if (!user) return;
-          const ref = doc(
-            db,
-            "users",
-            user.uid,
-            "monthlyBudgets",
-            selectedMonthId,
-          );
-          const updated = budget.categories.filter(
-            (c: any) => c.id !== editItem.id,
-          );
-          await updateDoc(ref, { categories: updated });
-          setModalVisible(false);
-        },
-      },
-    ]);
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      const ref = doc(db, "users", user.uid, "monthlyBudgets", selectedMonthId);
+      const updated = budget.categories.filter(
+        (c: any) => c.id !== editItem.id,
+      );
+      await updateDoc(ref, { categories: updated });
+      setModalVisible(false);
+      setAlertConfig({
+        visible: true,
+        title: "ITEM REMOVIDO",
+        message: `"${editItem.name}" foi excluído com sucesso.`,
+        type: "success",
+        onConfirm: () =>
+          setAlertConfig((prev) => ({ ...prev, visible: false })),
+      });
+    } catch (e) {
+      setAlertConfig({
+        visible: true,
+        title: "ERRO AO EXCLUIR",
+        message: "Não foi possível remover este item agora.",
+        type: "error",
+        onConfirm: () =>
+          setAlertConfig((prev) => ({ ...prev, visible: false })),
+      });
+    }
   };
 
   const totalExpenses =
@@ -333,7 +348,6 @@ export default function Home() {
                     R$ {remaining.toFixed(2)}
                   </Text>
                 </View>
-
                 <View style={styles.grid}>
                   <TouchableOpacity
                     style={[styles.card, { borderColor: theme.primary }]}
@@ -356,7 +370,6 @@ export default function Home() {
                       R$ {(budget?.income || 0).toFixed(2)}
                     </Text>
                   </TouchableOpacity>
-
                   {budget?.categories?.map((cat: any) => (
                     <CategoryCard
                       key={cat.id}
@@ -367,7 +380,6 @@ export default function Home() {
                     />
                   ))}
                 </View>
-
                 <TouchableOpacity
                   style={styles.addButton}
                   onPress={() =>
@@ -407,7 +419,6 @@ export default function Home() {
                 <X color={theme.text} />
               </TouchableOpacity>
             </View>
-
             <TextInput
               style={[styles.input, { marginBottom: 15 }]}
               placeholder="Nome"
@@ -416,7 +427,6 @@ export default function Home() {
               onChangeText={(t) => setEditItem({ ...editItem, name: t })}
               editable={editItem?.id !== "salary"}
             />
-
             <View style={{ flexDirection: "row", gap: 10 }}>
               <View style={{ flex: 2 }}>
                 <Text style={styles.label}>Valor Total (R$)</Text>
@@ -426,11 +436,10 @@ export default function Home() {
                   placeholder="0,00"
                   value={inputValue}
                   onChangeText={(t) => {
-                    const sanitized = t.replace(/[^0-9,.]/g, "");
-                    setInputValue(sanitized);
+                    setInputValue(t);
                     setEditItem({
                       ...editItem,
-                      value: parseFloat(sanitized.replace(",", ".")) || 0,
+                      value: parseFloat(t.replace(",", ".")) || 0,
                     });
                   }}
                 />
@@ -449,7 +458,6 @@ export default function Home() {
                 </View>
               )}
             </View>
-
             {editItem?.id !== "salary" && (
               <View style={styles.repeatSelector}>
                 <TouchableOpacity
@@ -486,7 +494,6 @@ export default function Home() {
                 </TouchableOpacity>
               </View>
             )}
-
             {editItem?.id !== "salary" && (
               <>
                 <Text
@@ -542,7 +549,6 @@ export default function Home() {
                 />
               </>
             )}
-
             <TouchableOpacity
               style={[styles.saveButton, isSaving && { opacity: 0.8 }]}
               onPress={handleSave}
@@ -556,7 +562,6 @@ export default function Home() {
                 </Text>
               )}
             </TouchableOpacity>
-
             {!isNewCategory && editItem?.id !== "salary" && (
               <TouchableOpacity
                 style={styles.deleteButton}
@@ -572,6 +577,14 @@ export default function Home() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={alertConfig.onConfirm}
+      />
     </SafeAreaView>
   );
 }
