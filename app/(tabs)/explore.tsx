@@ -36,12 +36,11 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 import { useMonth } from "@/context/MonthContext";
-import { useTheme } from "@/context/ThemeContext"; // 1. Importando o tema correto
+import { useTheme } from "@/context/ThemeContext";
 
 export default function Explore() {
   const { selectedMonthId, setSelectedMonthId } = useMonth();
 
-  // 2. Trocando o useColorScheme pelo tema do nosso contexto
   const { theme: themeMode } = useTheme();
   const theme = Colors[themeMode as keyof typeof Colors];
 
@@ -54,7 +53,6 @@ export default function Explore() {
   const offset = useSharedValue(0);
   const opacity = useSharedValue(1);
 
-  // 3. Memoizando os estilos para performance e evitar erros de dependência do ESLint
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const changeMonth = (direction: number) => {
@@ -159,7 +157,6 @@ export default function Explore() {
       setLoadingYear(false);
     };
     fetchYearly();
-    // 4. Adicionando as dependências que o ESLint pediu antes
   }, [selectedYear, theme.error, styles.barTopValue]);
 
   const pieData =
@@ -197,18 +194,6 @@ export default function Explore() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.selectorContainer}>
-        <TouchableOpacity onPress={() => changeMonth(-1)}>
-          <ChevronLeft color={theme.primary} size={28} />
-        </TouchableOpacity>
-        <Text style={styles.monthTitle}>
-          {formatMonthTitle(selectedMonthId)}
-        </Text>
-        <TouchableOpacity onPress={() => changeMonth(1)}>
-          <ChevronRight color={theme.primary} size={28} />
-        </TouchableOpacity>
-      </View>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
@@ -292,7 +277,6 @@ export default function Explore() {
           </Animated.View>
         </GestureDetector>
 
-        {/* CARD ANUAL - COM ALTURA BLINDADA PARA NÃO PULAR */}
         <View style={styles.chartCard}>
           <View style={styles.yearSelector}>
             <TouchableOpacity onPress={() => setSelectedYear((y) => y - 1)}>
@@ -372,7 +356,6 @@ const createStyles = (theme: any) =>
     },
     chartLabel: { color: theme.secondary, fontSize: 14, fontWeight: "600" },
 
-    // ALTURAS FIXAS PARA EVITAR O PULO
     fixedContentArea: {
       height: 320,
       justifyContent: "center",
@@ -415,11 +398,3 @@ const createStyles = (theme: any) =>
     yearTitle: { color: theme.text, fontSize: 18, fontWeight: "bold" },
     barTopValue: { color: theme.secondary, fontSize: 8 },
   });
-
-const formatMonthTitle = (id: string) => {
-  const [y, m] = id.split("-").map(Number);
-  return new Date(y, m - 1).toLocaleString("pt-BR", {
-    month: "long",
-    year: "numeric",
-  });
-};

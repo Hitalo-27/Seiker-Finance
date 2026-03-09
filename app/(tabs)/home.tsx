@@ -15,8 +15,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  ChevronLeft,
-  ChevronRight,
   X,
   Target,
   TrendingDown,
@@ -93,7 +91,6 @@ export default function Home() {
   const openEditModal = (item: any, isNew: boolean) => {
     const savedMonths = item.totalMonths || 1;
     const savedMode = item.repeatMode || "split";
-
     const totalValue =
       savedMode === "split" ? item.value * savedMonths : item.value;
 
@@ -105,7 +102,6 @@ export default function Home() {
 
     setIsNewCategory(isNew);
     setRepeatMode(savedMode);
-
     setInputValue(
       totalValue > 0 ? String(totalValue.toFixed(2)).replace(".", ",") : "",
     );
@@ -153,7 +149,11 @@ export default function Home() {
       selectedMonthId,
     );
     return onSnapshot(budgetRef, (docSnap) => {
-      if (docSnap.exists()) {
+      if (
+        docSnap.exists() &&
+        Array.isArray(docSnap.data().categories) &&
+        docSnap.data().categories.length > 0
+      ) {
         setBudget(docSnap.data());
       } else {
         initializeMonth(user.uid, selectedMonthId);
@@ -164,41 +164,27 @@ export default function Home() {
 
   const initializeMonth = async (uid: string, monthId: string) => {
     const docRef = doc(db, "users", uid, "monthlyBudgets", monthId);
-    const docSnap = await getDoc(docRef);
-    if (!docSnap.exists()) {
-      await setDoc(docRef, {
-        income: 0,
-        categories: [
-          {
-            id: "fixed",
-            name: "Contas Fixas",
-            value: 0,
-            color: "#FFB800",
-            icon: "Target",
-          },
-          {
-            id: "leisure",
-            name: "Lazer",
-            value: 0,
-            color: "#00FF85",
-            icon: "TrendingDown",
-          },
-        ],
-      });
-    }
+
+    const userSnap = await getDoc(doc(db, "users", uid));
+    const userData = userSnap.data();
+
+    const categoriesToUse = userData?.categoryTemplate || [];
+
+    await setDoc(docRef, {
+      income: 0,
+      categories: categoriesToUse,
+    });
   };
 
   const handleSave = async () => {
     const user = auth.currentUser;
     if (!user || !editItem) return;
-
     setIsSaving(true);
 
     try {
       const oldMonths = editItem.totalMonths || 1;
       const newMonths = parseInt(editItem.installments) || 1;
       const groupId = editItem.groupId || Date.now().toString();
-
       const valuePerMonth =
         repeatMode === "split" ? editItem.value / newMonths : editItem.value;
 
@@ -236,7 +222,6 @@ export default function Home() {
             const exists = cats.find(
               (c) => c.id === categoryData.id || c.groupId === groupId,
             );
-
             if (exists) {
               cats = cats.map((c: any) =>
                 c.id === categoryData.id || c.groupId === groupId
@@ -273,7 +258,6 @@ export default function Home() {
           }
         }
       }
-
       setModalVisible(false);
     } catch (error) {
       Alert.alert("Erro", "Erro ao sincronizar dados.");
@@ -286,7 +270,7 @@ export default function Home() {
     Alert.alert("Excluir", `Deseja remover "${editItem.name}"?`, [
       { text: "Não", style: "cancel" },
       {
-        text: "Sim, Excluir",
+        text: "Sim",
         style: "destructive",
         onPress: async () => {
           const user = auth.currentUser;
@@ -317,19 +301,6 @@ export default function Home() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* ... Cabeçalho de Meses igual ao anterior ... */}
-      <View style={styles.selectorContainer}>
-        <TouchableOpacity onPress={() => changeMonth(-1)}>
-          <ChevronLeft color={theme.primary} size={28} />
-        </TouchableOpacity>
-        <Text style={styles.monthTitle}>
-          {formatMonthTitle(selectedMonthId)}
-        </Text>
-        <TouchableOpacity onPress={() => changeMonth(1)}>
-          <ChevronRight color={theme.primary} size={28} />
-        </TouchableOpacity>
-      </View>
-
       <GestureDetector gesture={swipeGesture}>
         <Animated.View style={animatedContentStyle}>
           <ScrollView
@@ -364,7 +335,6 @@ export default function Home() {
                 </View>
 
                 <View style={styles.grid}>
-                  {/* Renda Mensal */}
                   <TouchableOpacity
                     style={[styles.card, { borderColor: theme.primary }]}
                     onPress={() =>
@@ -387,7 +357,6 @@ export default function Home() {
                     </Text>
                   </TouchableOpacity>
 
-                  {/* Categorias */}
                   {budget?.categories?.map((cat: any) => (
                     <CategoryCard
                       key={cat.id}
@@ -424,7 +393,6 @@ export default function Home() {
         </Animated.View>
       </GestureDetector>
 
-      {/* MODAL DE EDIÇÃO / CRIAÇÃO */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -456,14 +424,14 @@ export default function Home() {
                   style={styles.input}
                   keyboardType="decimal-pad"
                   placeholder="0,00"
-                  placeholderTextColor={theme.secondary}
                   value={inputValue}
                   onChangeText={(t) => {
                     const sanitized = t.replace(/[^0-9,.]/g, "");
                     setInputValue(sanitized);
-                    const numericValue =
-                      parseFloat(sanitized.replace(",", ".")) || 0;
-                    setEditItem({ ...editItem, value: numericValue });
+                    setEditItem({
+                      ...editItem,
+                      value: parseFloat(sanitized.replace(",", ".")) || 0,
+                    });
                   }}
                 />
               </View>
@@ -519,7 +487,6 @@ export default function Home() {
               </View>
             )}
 
-            {/* Configurações Visuais e Botão de Salvar igual ao anterior... */}
             {editItem?.id !== "salary" && (
               <>
                 <Text
@@ -608,38 +575,6 @@ export default function Home() {
     </SafeAreaView>
   );
 }
-
-function CategoryCard({ cat, styles, theme, onPress }: any) {
-  const IconComp = ICON_LIST.find((i) => i.name === cat.icon)?.lib || Target;
-  const color = cat.color || theme.text;
-  return (
-    <TouchableOpacity
-      style={[styles.card, { borderColor: color }]}
-      onPress={onPress}
-    >
-      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        <IconComp color={color} size={20} />
-        {cat.installmentLabel && (
-          <Text style={{ color: color, fontSize: 10, fontWeight: "bold" }}>
-            {cat.installmentLabel}
-          </Text>
-        )}
-      </View>
-      <Text style={styles.cardTitle}>{cat.name}</Text>
-      <Text style={[styles.cardValue, { color: color }]}>
-        R$ {cat.value?.toFixed(2)}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
-const formatMonthTitle = (id: string) => {
-  const [y, m] = id.split("-").map(Number);
-  return new Date(y, m - 1).toLocaleString("pt-BR", {
-    month: "long",
-    year: "numeric",
-  });
-};
 
 const createStyles = (theme: any) =>
   StyleSheet.create({
@@ -744,7 +679,6 @@ const createStyles = (theme: any) =>
       justifyContent: "center",
       gap: 10,
     },
-
     repeatSelector: {
       flexDirection: "row",
       backgroundColor: theme.background,
@@ -762,3 +696,27 @@ const createStyles = (theme: any) =>
     repeatTabText: { color: theme.secondary, fontSize: 12, fontWeight: "bold" },
     repeatTabTextActive: { color: theme.background },
   });
+
+function CategoryCard({ cat, styles, theme, onPress }: any) {
+  const IconComp = ICON_LIST.find((i) => i.name === cat.icon)?.lib || Target;
+  const color = cat.color || theme.text;
+  return (
+    <TouchableOpacity
+      style={[styles.card, { borderColor: color }]}
+      onPress={onPress}
+    >
+      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+        <IconComp color={color} size={20} />
+        {cat.installmentLabel && (
+          <Text style={{ color: color, fontSize: 10, fontWeight: "bold" }}>
+            {cat.installmentLabel}
+          </Text>
+        )}
+      </View>
+      <Text style={styles.cardTitle}>{cat.name}</Text>
+      <Text style={[styles.cardValue, { color: color }]}>
+        R$ {cat.value?.toFixed(2)}
+      </Text>
+    </TouchableOpacity>
+  );
+}
