@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -45,6 +45,8 @@ export default function GlobalHeader() {
   const [templateModal, setTemplateModal] = useState(false);
   const [templateCategories, setTemplateCategories] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+
+  const flatListRef = useRef<FlatList>(null);
 
   const ICON_LIST = [
     { name: "Target", lib: Target },
@@ -110,9 +112,7 @@ export default function GlobalHeader() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <TouchableOpacity onPress={() => setMenuVisible(true)}>
-        <User color={theme.primary} size={28} />
-      </TouchableOpacity>
+      <View style={{ width: 28 }} />
 
       <View style={styles.monthSelector}>
         <TouchableOpacity onPress={() => changeMonth(-1)}>
@@ -129,7 +129,9 @@ export default function GlobalHeader() {
         </TouchableOpacity>
       </View>
 
-      <View style={{ width: 28 }} />
+      <TouchableOpacity onPress={() => setMenuVisible(true)}>
+        <User color={theme.primary} size={28} />
+      </TouchableOpacity>
 
       <Modal visible={menuVisible} transparent animationType="fade">
         <TouchableOpacity
@@ -146,7 +148,10 @@ export default function GlobalHeader() {
               <Target color={theme.primary} size={18} />
               <Text style={{ color: theme.text }}>Criar Template</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+            <TouchableOpacity
+              style={[styles.menuItem, { borderBottomWidth: 0 }]}
+              onPress={handleLogout}
+            >
               <Trash2 color={theme.error} size={18} />
               <Text style={{ color: theme.error }}>Sair</Text>
             </TouchableOpacity>
@@ -174,6 +179,7 @@ export default function GlobalHeader() {
             </View>
 
             <FlatList
+              ref={flatListRef}
               data={templateCategories}
               keyExtractor={(_, index) => index.toString()}
               renderItem={({ item, index }) => (
@@ -268,7 +274,7 @@ export default function GlobalHeader() {
 
             <TouchableOpacity
               style={styles.addButton}
-              onPress={() =>
+              onPress={() => {
                 setTemplateCategories([
                   ...templateCategories,
                   {
@@ -278,8 +284,11 @@ export default function GlobalHeader() {
                     color: "#FFF",
                     icon: "Target",
                   },
-                ])
-              }
+                ]);
+                setTimeout(() => {
+                  flatListRef.current?.scrollToEnd({ animated: true });
+                }, 100);
+              }}
             >
               <Plus color={theme.primary} />
             </TouchableOpacity>
@@ -291,7 +300,9 @@ export default function GlobalHeader() {
               {isSaving ? (
                 <ActivityIndicator color="#000" />
               ) : (
-                <Text style={{ fontWeight: "bold" }}>SALVAR TEMPLATE</Text>
+                <Text style={{ fontWeight: "bold", color: theme.background }}>
+                  SALVAR TEMPLATE
+                </Text>
               )}
             </TouchableOpacity>
           </View>
@@ -321,22 +332,25 @@ const styles = StyleSheet.create({
   menu: {
     position: "absolute",
     top: 100,
-    left: 20,
+    right: 20,
     padding: 10,
     borderRadius: 12,
     borderWidth: 1,
     width: 180,
+    elevation: 5,
   },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
   },
   modalContent: {
     width: "85%",
-    height: "70%",
-    borderRadius: 20,
+    height: "75%",
+    borderRadius: 25,
     padding: 20,
     borderWidth: 1,
   },
@@ -344,14 +358,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 20,
-  },
-  templateRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: 15,
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderRadius: 10,
-    marginBottom: 8,
   },
   addButton: {
     padding: 15,
@@ -363,8 +369,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   saveButton: {
-    padding: 15,
-    borderRadius: 10,
+    padding: 18,
+    borderRadius: 12,
     alignItems: "center",
     marginTop: 20,
   },
