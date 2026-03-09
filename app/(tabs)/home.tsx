@@ -16,14 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   X,
   Target,
-  TrendingDown,
-  TrendingUp,
   Wallet,
-  ShoppingBag,
-  Coffee,
-  Car,
-  Home as HomeIcon,
-  Heart,
   Trash2,
 } from "lucide-react-native";
 import { auth, db } from "../../FirebaseConfig";
@@ -41,34 +34,7 @@ import Animated, {
 import { useMonth } from "@/context/MonthContext";
 import { useTheme } from "@/context/ThemeContext";
 import ThemedAlert from "../../components/ThemedAlert";
-
-const ICON_LIST = [
-  { name: "Target", lib: Target },
-  { name: "TrendingUp", lib: TrendingUp },
-  { name: "TrendingDown", lib: TrendingDown },
-  { name: "Wallet", lib: Wallet },
-  { name: "ShoppingBag", lib: ShoppingBag },
-  { name: "Coffee", lib: Coffee },
-  { name: "Car", lib: Car },
-  { name: "Home", lib: HomeIcon },
-  { name: "Heart", lib: Heart },
-];
-
-const PRESET_COLORS = [
-  "#00F5FF",
-  "#FF00E5",
-  "#00FF85",
-  "#A020F0",
-  "#FFB800",
-  "#FF5252",
-  "#FFFFFF",
-  "#8B4513",
-  "#000000",
-  "#F50",
-  "#808080",
-  "#003366",
-  "#006400",
-];
+import { ICON_LIST, PRESET_COLORS } from "../../constants/icons";
 
 export default function Home() {
   const { selectedMonthId, setSelectedMonthId } = useMonth();

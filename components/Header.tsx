@@ -19,14 +19,6 @@ import {
   Trash2,
   X,
   Plus,
-  TrendingDown,
-  TrendingUp,
-  Wallet,
-  ShoppingBag,
-  Coffee,
-  Car,
-  Home as HomeIcon,
-  Heart,
 } from "lucide-react-native";
 import { auth, db } from "../FirebaseConfig";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
@@ -34,6 +26,7 @@ import { Colors } from "../constants/theme";
 import { useTheme } from "@/context/ThemeContext";
 import { useMonth } from "@/context/MonthContext";
 import { useRouter } from "expo-router";
+import { ICON_LIST, PRESET_COLORS } from "../constants/icons";
 
 export default function GlobalHeader() {
   const router = useRouter();
@@ -47,34 +40,6 @@ export default function GlobalHeader() {
   const [isSaving, setIsSaving] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
-
-  const ICON_LIST = [
-    { name: "Target", lib: Target },
-    { name: "TrendingUp", lib: TrendingUp },
-    { name: "TrendingDown", lib: TrendingDown },
-    { name: "Wallet", lib: Wallet },
-    { name: "ShoppingBag", lib: ShoppingBag },
-    { name: "Coffee", lib: Coffee },
-    { name: "Car", lib: Car },
-    { name: "Home", lib: HomeIcon },
-    { name: "Heart", lib: Heart },
-  ];
-
-  const PRESET_COLORS = [
-    "#00F5FF",
-    "#FF00E5",
-    "#00FF85",
-    "#A020F0",
-    "#FFB800",
-    "#FF5252",
-    "#FFFFFF",
-    "#8B4513",
-    "#000000",
-    "#F50",
-    "#808080",
-    "#003366",
-    "#006400",
-  ];
 
   const changeMonth = (direction: number) => {
     const [y, m] = selectedMonthId.split("-").map(Number);
