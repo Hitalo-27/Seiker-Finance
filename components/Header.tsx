@@ -146,6 +146,7 @@ export default function GlobalHeader() {
             <FlatList
               ref={flatListRef}
               data={templateCategories}
+              showsVerticalScrollIndicator={false}
               keyExtractor={(_, index) => index.toString()}
               renderItem={({ item, index }) => (
                 <View
@@ -313,8 +314,8 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.05)",
   },
   modalContent: {
-    width: "85%",
-    height: "75%",
+    width: "95%",
+    height: "95%",
     borderRadius: 25,
     padding: 20,
     borderWidth: 1,
