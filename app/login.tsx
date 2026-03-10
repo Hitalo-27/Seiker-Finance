@@ -5,7 +5,6 @@ import {
 } from "firebase/auth";
 import React, { useState } from "react";
 import {
-  Alert,
   StyleSheet,
   Text,
   TextInput,
@@ -21,11 +20,13 @@ import { auth } from "../FirebaseConfig";
 import { Colors } from "../constants/theme";
 import { useTheme } from "@/context/ThemeContext";
 import { Sun, Moon } from "lucide-react-native";
+import { useAlert } from "@/context/AlertContext";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
+  const { showAlert } = useAlert();
 
   const { theme, toggleTheme } = useTheme();
   const activeTheme = Colors[theme as keyof typeof Colors];
@@ -40,7 +41,12 @@ export default function Login() {
       }
       router.replace("/home");
     } catch (error: any) {
-      Alert.alert("Erro na Autenticação", error.message);
+      showAlert({
+        title: "Erro na Autenticação",
+        message: "E-mail ou senha inválidos. Tente novamente.",
+        type: "error",
+        onConfirm: () => {},
+      });
     }
   };
 

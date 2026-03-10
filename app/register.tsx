@@ -17,7 +17,7 @@ import {
 import { Colors } from "../constants/theme";
 import { auth, db } from "../FirebaseConfig";
 import { useTheme } from "@/context/ThemeContext";
-import ThemedAlert from "../components/ThemedAlert";
+import { useAlert } from "@/context/AlertContext";
 
 export default function Register() {
   const [name, setName] = useState("");
@@ -26,36 +26,30 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const [alertConfig, setAlertConfig] = useState({
-    visible: false,
-    title: "",
-    message: "",
-    type: "info" as "success" | "error" | "info",
-  });
-
   const { theme } = useTheme();
   const activeTheme = Colors[theme as keyof typeof Colors];
   const styles = createStyles(activeTheme);
 
   const router = useRouter();
+  const { showAlert } = useAlert();
 
   const handleRegister = async () => {
     if (!name || !email || !password) {
-      setAlertConfig({
-        visible: true,
+      showAlert({
         title: "DADOS INCOMPLETOS",
         message: "Preencha todos os campos para prosseguir.",
         type: "error",
+        onConfirm: () => {},
       });
       return;
     }
 
     if (password !== confirmPassword) {
-      setAlertConfig({
-        visible: true,
+      showAlert({
         title: "SENHAS DIFERENTES",
         message: "As senhas digitadas não coincidem.",
         type: "error",
+        onConfirm: () => {},
       });
       return;
     }
@@ -79,18 +73,18 @@ export default function Register() {
         createdAt: new Date().toISOString(),
       });
 
-      setAlertConfig({
-        visible: true,
+      showAlert({
         title: "BEM-VINDO!",
         message: "Sua conta foi criada com sucesso no Seiker.",
         type: "success",
+        onConfirm: () => router.replace("/home"),
       });
     } catch (error: any) {
-      setAlertConfig({
-        visible: true,
+      showAlert({
         title: "FALHA NO CADASTRO",
         message: error.message,
         type: "error",
+        onConfirm: () => {},
       });
     } finally {
       setLoading(false);
@@ -171,19 +165,6 @@ export default function Register() {
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
-
-      <ThemedAlert
-        visible={alertConfig.visible}
-        title={alertConfig.title}
-        message={alertConfig.message}
-        type={alertConfig.type}
-        onClose={() => {
-          setAlertConfig({ ...alertConfig, visible: false });
-          if (alertConfig.type === "success") {
-            router.replace("/home");
-          }
-        }}
-      />
     </View>
   );
 }
