@@ -252,7 +252,7 @@ export default function GlobalHeader() {
 
             <TouchableOpacity style={styles.menuItem} onPress={loadTemplate}>
               <Target color={theme.primary} size={18} />
-              <Text style={{ color: theme.text }}>Criar Template</Text>
+              <Text style={{ color: theme.text }}>Meu Template</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
