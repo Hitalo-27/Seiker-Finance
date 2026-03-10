@@ -9,17 +9,18 @@ import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
-// 1. Importe o nosso novo provedor de tema e o hook
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import { MonthProvider } from "@/context/MonthContext";
+import { AlertProvider, useAlert } from "@/context/AlertContext";
+import ThemedAlert from "../components/ThemedAlert";
 
 export const unstable_settings = {
   anchor: "(tabs)",
 };
 
-// Criamos um componente interno para acessar o contexto do tema
 function RootLayoutContent() {
-  const { theme } = useTheme(); // Pega o tema ('light' ou 'dark') do nosso contexto
+  const { theme } = useTheme();
+  const { alertConfig, hideAlert } = useAlert();
 
   return (
     <NavigationProvider value={theme === "dark" ? DarkTheme : DefaultTheme}>
@@ -28,6 +29,15 @@ function RootLayoutContent() {
         <Stack.Screen name="register" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
+
+      <ThemedAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={hideAlert}
+      />
+
       <StatusBar style={theme === "dark" ? "light" : "dark"} />
     </NavigationProvider>
   );
@@ -36,11 +46,12 @@ function RootLayoutContent() {
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      {/* 2. O ThemeProvider envolve tudo para que possamos usar o useTheme() dentro */}
       <ThemeProvider>
-        <MonthProvider>
-          <RootLayoutContent />
-        </MonthProvider>
+        <AlertProvider>
+          <MonthProvider>
+            <RootLayoutContent />
+          </MonthProvider>
+        </AlertProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );
