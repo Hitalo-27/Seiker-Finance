@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -37,10 +37,10 @@ import Animated, {
 } from "react-native-reanimated";
 import { useMonth } from "@/context/MonthContext";
 import { useTheme } from "@/context/ThemeContext";
+import { useFocusEffect } from "expo-router";
 
 export default function Explore() {
   const { selectedMonthId, setSelectedMonthId } = useMonth();
-
   const { theme: themeMode } = useTheme();
   const theme = Colors[themeMode as keyof typeof Colors];
 
@@ -59,7 +59,6 @@ export default function Explore() {
     opacity.value = 0;
     const [y, m] = selectedMonthId.split("-").map(Number);
     const d = new Date(y, m - 1 + direction, 1);
-
     setTimeout(() => {
       setSelectedMonthId(d.toISOString().slice(0, 7));
       offset.value = direction * 50;
@@ -102,78 +101,93 @@ export default function Explore() {
     });
   }, [selectedMonthId]);
 
-  useEffect(() => {
-    const fetchYearly = async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-      setLoadingYear(true);
+  const fetchYearly = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    setLoadingYear(true);
 
-      const start = `${selectedYear}-01`;
-      const end = `${selectedYear}-12`;
-      const q = query(
-        collection(db, "users", user.uid, "monthlyBudgets"),
-        where("__name__", ">=", start),
-        where("__name__", "<=", end),
-      );
+    const start = `${selectedYear}-01`;
+    const end = `${selectedYear}-12`;
+    const q = query(
+      collection(db, "users", user.uid, "monthlyBudgets"),
+      where("__name__", ">=", start),
+      where("__name__", "<=", end),
+    );
 
-      const querySnap = await getDocs(q);
-      const months = [
-        "Jan",
-        "Fev",
-        "Mar",
-        "Abr",
-        "Mai",
-        "Jun",
-        "Jul",
-        "Ago",
-        "Set",
-        "Out",
-        "Nov",
-        "Dez",
-      ];
+    const querySnap = await getDocs(q);
+    const months = [
+      "Jan",
+      "Fev",
+      "Mar",
+      "Abr",
+      "Mai",
+      "Jun",
+      "Jul",
+      "Ago",
+      "Set",
+      "Out",
+      "Nov",
+      "Dez",
+    ];
 
-      const formatted = months.map((mLabel, i) => {
-        const mIdx = (i + 1).toString().padStart(2, "0");
-        const data = querySnap.docs
-          .find((d) => d.id === `${selectedYear}-${mIdx}`)
-          ?.data();
-        const exp =
-          data?.categories?.reduce(
-            (acc: number, c: any) => acc + (c.value || 0),
-            0,
-          ) || 0;
+    const formatted = months.map((mLabel, i) => {
+      const mIdx = (i + 1).toString().padStart(2, "0");
+      const data = querySnap.docs
+        .find((d) => d.id === `${selectedYear}-${mIdx}`)
+        ?.data();
+      const exp =
+        data?.categories?.reduce(
+          (acc: number, c: any) => acc + (c.value || 0),
+          0,
+        ) || 0;
 
-        return {
-          value: exp,
-          label: mLabel,
-          frontColor: theme.error,
-          topLabelComponent: () => (
-            <Text style={styles.barTopValue}>R$ {exp.toFixed(0)}</Text>
-          ),
-        };
-      });
+      return {
+        value: exp,
+        label: mLabel,
+        frontColor: theme.error,
+        topLabelComponent: () => (
+          <Text style={styles.barTopValue}>R$ {exp.toFixed(0)}</Text>
+        ),
+      };
+    });
 
-      setYearlyData(formatted);
-      setLoadingYear(false);
-    };
-    fetchYearly();
-  }, [selectedYear, theme.error, styles.barTopValue]);
+    setYearlyData(formatted);
+    setLoadingYear(false);
+  };
 
-  const pieData =
-    budget?.categories
-      ?.map((cat: any) => ({
+  useFocusEffect(
+    useCallback(() => {
+      fetchYearly();
+    }, [selectedYear]),
+  );
+
+  const { totalExpenses, totalInvestments, pieData } = useMemo(() => {
+    if (!budget?.categories)
+      return { totalExpenses: 0, totalInvestments: 0, pieData: [] };
+
+    const totals = budget.categories.reduce(
+      (acc: any, cat: any) => {
+        if (cat.categoryType === "investment") {
+          acc.totalInvestments += cat.value || 0;
+        } else {
+          acc.totalExpenses += cat.value || 0;
+        }
+        return acc;
+      },
+      { totalExpenses: 0, totalInvestments: 0 },
+    );
+
+    const formattedPie = budget.categories
+      .map((cat: any) => ({
         value: cat.value || 0,
         color: cat.color || theme.primary,
         gradientColor: cat.color ? cat.color + "80" : theme.primary + "80",
         text: cat.name,
       }))
-      .filter((d: any) => d.value > 0) || [];
+      .filter((d: any) => d.value > 0);
 
-  const totalExpenses =
-    budget?.categories?.reduce(
-      (acc: number, cat: any) => acc + (cat.value || 0),
-      0,
-    ) || 0;
+    return { ...totals, pieData: formattedPie };
+  }, [budget, theme.primary]);
 
   const barData = [
     {
@@ -189,6 +203,13 @@ export default function Explore() {
       frontColor: theme.error,
       showGradient: true,
       gradientColor: "#7B1212",
+    },
+    {
+      value: totalInvestments,
+      label: "Invest.",
+      frontColor: "#FFB800",
+      showGradient: true,
+      gradientColor: "#7A5900",
     },
   ];
 
@@ -226,7 +247,7 @@ export default function Explore() {
                             ).toFixed(0)}
                             %
                           </Text>
-                          <Text style={styles.centerLabel}>Gasto</Text>
+                          <Text style={styles.centerLabel}>Consumido</Text>
                         </View>
                       )}
                     />
@@ -251,7 +272,9 @@ export default function Explore() {
             <View style={styles.chartCard}>
               <View style={styles.chartHeader}>
                 <BarChart3 size={20} color={theme.primary} />
-                <Text style={styles.chartLabel}>Renda x Gastos</Text>
+                <Text style={styles.chartLabel}>
+                  Renda x Gastos x Investimentos
+                </Text>
               </View>
               <View style={styles.fixedBarArea}>
                 {loadingMonth ? (
@@ -259,15 +282,16 @@ export default function Explore() {
                 ) : (
                   <BarChart
                     data={barData}
-                    barWidth={60}
+                    barWidth={50}
                     barBorderRadius={10}
                     yAxisThickness={0}
                     xAxisThickness={0}
                     hideRules
+                    noOfSections={3}
                     yAxisTextStyle={{ color: theme.secondary, fontSize: 10 }}
                     xAxisLabelTextStyle={{
                       color: theme.text,
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: "bold",
                     }}
                   />
@@ -290,7 +314,6 @@ export default function Explore() {
               <ChevronRight color={theme.primary} />
             </TouchableOpacity>
           </View>
-
           <View style={styles.fixedYearlyArea}>
             {loadingYear ? (
               <View style={styles.loadingInner}>
@@ -326,19 +349,6 @@ export default function Explore() {
 const createStyles = (theme: any) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.background },
-    selectorContainer: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      paddingVertical: 15,
-      gap: 20,
-    },
-    monthTitle: {
-      color: theme.text,
-      fontSize: 18,
-      fontWeight: "bold",
-      textTransform: "capitalize",
-    },
     scroll: { padding: 20, paddingBottom: 50 },
     chartCard: {
       backgroundColor: theme.card,
@@ -355,15 +365,14 @@ const createStyles = (theme: any) =>
       marginBottom: 25,
     },
     chartLabel: { color: theme.secondary, fontSize: 14, fontWeight: "600" },
-
     fixedContentArea: {
-      height: 320,
+      height: 350,
       justifyContent: "center",
       alignItems: "center",
       width: "100%",
     },
     fixedBarArea: {
-      height: 220,
+      height: 250,
       justifyContent: "center",
       alignItems: "center",
       width: "100%",
@@ -374,7 +383,6 @@ const createStyles = (theme: any) =>
       justifyContent: "center",
       alignItems: "center",
     },
-
     centerValue: { color: theme.primary, fontSize: 24, fontWeight: "bold" },
     centerLabel: { color: theme.secondary, fontSize: 11 },
     legendGrid: {
