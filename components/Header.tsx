@@ -1,11 +1,10 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Modal,
-  Alert,
   ActivityIndicator,
   FlatList,
   TextInput,
@@ -19,18 +18,36 @@ import {
   Trash2,
   X,
   Plus,
+  Sun,
+  Moon,
 } from "lucide-react-native";
 import { auth, db } from "../FirebaseConfig";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { Colors } from "../constants/theme";
 import { useTheme } from "@/context/ThemeContext";
 import { useMonth } from "@/context/MonthContext";
 import { useRouter } from "expo-router";
 import { ICON_LIST, PRESET_COLORS } from "../constants/icons";
+import { useAlert } from "@/context/AlertContext";
+
+const MONTHS = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
+];
 
 export default function GlobalHeader() {
   const router = useRouter();
-  const { theme: themeMode } = useTheme();
+  const { theme: themeMode, toggleTheme } = useTheme();
   const theme = Colors[themeMode as keyof typeof Colors];
   const { selectedMonthId, setSelectedMonthId } = useMonth();
 
@@ -39,12 +56,28 @@ export default function GlobalHeader() {
   const [templateCategories, setTemplateCategories] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
+
   const flatListRef = useRef<FlatList>(null);
+  const { showAlert } = useAlert();
+
+  useEffect(() => {
+    if (selectedMonthId) {
+      setPickerYear(parseInt(selectedMonthId.split("-")[0]));
+    }
+  }, [selectedMonthId, pickerVisible]);
 
   const changeMonth = (direction: number) => {
     const [y, m] = selectedMonthId.split("-").map(Number);
     const d = new Date(y, m - 1 + direction, 1);
     setSelectedMonthId(d.toISOString().slice(0, 7));
+  };
+
+  const selectMonthFromPicker = (monthIndex: number) => {
+    const monthFormatted = String(monthIndex + 1).padStart(2, "0");
+    setSelectedMonthId(`${pickerYear}-${monthFormatted}`);
+    setPickerVisible(false);
   };
 
   const handleLogout = () => {
@@ -67,12 +100,52 @@ export default function GlobalHeader() {
     const user = auth.currentUser;
     if (!user) return;
     setIsSaving(true);
-    await updateDoc(doc(db, "users", user.uid), {
-      categoryTemplate: templateCategories,
-    });
-    setIsSaving(false);
-    setTemplateModal(false);
-    Alert.alert("Sucesso", "Template padrão atualizado!");
+
+    try {
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        categoryTemplate: templateCategories,
+      });
+
+      const monthRef = doc(
+        db,
+        "users",
+        user.uid,
+        "monthlyBudgets",
+        selectedMonthId,
+      );
+      const monthSnap = await getDoc(monthRef);
+      const monthData = monthSnap.data();
+
+      if (
+        !monthSnap.exists() ||
+        !monthData?.categories ||
+        monthData.categories.length === 0
+      ) {
+        await setDoc(
+          monthRef,
+          { categories: templateCategories },
+          { merge: true },
+        );
+      }
+
+      setTemplateModal(false);
+      showAlert({
+        title: "Sucesso",
+        message: "Template salvo e aplicado ao mês atual.",
+        type: "success",
+        onConfirm: () => {},
+      });
+    } catch (error) {
+      showAlert({
+        title: "Erro",
+        message: "Falha ao salvar template.",
+        type: "error",
+        onConfirm: () => {},
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -83,12 +156,16 @@ export default function GlobalHeader() {
         <TouchableOpacity onPress={() => changeMonth(-1)}>
           <ChevronLeft color={theme.primary} size={24} />
         </TouchableOpacity>
-        <Text style={[styles.monthText, { color: theme.text }]}>
-          {new Date(selectedMonthId + "-01").toLocaleString("pt-BR", {
-            month: "short",
-            year: "numeric",
-          })}
-        </Text>
+
+        <TouchableOpacity onPress={() => setPickerVisible(true)}>
+          <Text style={[styles.monthText, { color: theme.text }]}>
+            {new Date(selectedMonthId + "-01T12:00:00").toLocaleString(
+              "pt-BR",
+              { month: "short", year: "numeric" },
+            )}
+          </Text>
+        </TouchableOpacity>
+
         <TouchableOpacity onPress={() => changeMonth(1)}>
           <ChevronRight color={theme.primary} size={24} />
         </TouchableOpacity>
@@ -97,6 +174,59 @@ export default function GlobalHeader() {
       <TouchableOpacity onPress={() => setMenuVisible(true)}>
         <User color={theme.primary} size={28} />
       </TouchableOpacity>
+
+      <Modal visible={pickerVisible} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.overlay}
+          activeOpacity={1}
+          onPress={() => setPickerVisible(false)}
+        >
+          <View
+            style={[
+              styles.pickerModal,
+              { backgroundColor: theme.card, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.pickerHeader}>
+              <TouchableOpacity onPress={() => setPickerYear(pickerYear - 1)}>
+                <ChevronLeft color={theme.primary} size={24} />
+              </TouchableOpacity>
+              <Text style={[styles.pickerYearText, { color: theme.text }]}>
+                {pickerYear}
+              </Text>
+              <TouchableOpacity onPress={() => setPickerYear(pickerYear + 1)}>
+                <ChevronRight color={theme.primary} size={24} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.monthsGrid}>
+              {MONTHS.map((month, index) => {
+                const isSelected =
+                  selectedMonthId ===
+                  `${pickerYear}-${String(index + 1).padStart(2, "0")}`;
+                return (
+                  <TouchableOpacity
+                    key={month}
+                    style={[
+                      styles.monthButton,
+                      isSelected && { backgroundColor: theme.primary },
+                    ]}
+                    onPress={() => selectMonthFromPicker(index)}
+                  >
+                    <Text
+                      style={[
+                        styles.monthButtonText,
+                        { color: isSelected ? theme.background : theme.text },
+                      ]}
+                    >
+                      {month}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <Modal visible={menuVisible} transparent animationType="fade">
         <TouchableOpacity
@@ -109,10 +239,22 @@ export default function GlobalHeader() {
               { backgroundColor: theme.card, borderColor: theme.border },
             ]}
           >
+            <TouchableOpacity style={styles.menuItem} onPress={toggleTheme}>
+              {themeMode === "dark" ? (
+                <Sun color={theme.primary} size={18} />
+              ) : (
+                <Moon color={theme.primary} size={18} />
+              )}
+              <Text style={{ color: theme.text }}>
+                Tema {themeMode === "dark" ? "Claro" : "Escuro"}
+              </Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.menuItem} onPress={loadTemplate}>
               <Target color={theme.primary} size={18} />
               <Text style={{ color: theme.text }}>Criar Template</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.menuItem, { borderBottomWidth: 0 }]}
               onPress={handleLogout}
@@ -251,9 +393,10 @@ export default function GlobalHeader() {
                     icon: "Target",
                   },
                 ]);
-                setTimeout(() => {
-                  flatListRef.current?.scrollToEnd({ animated: true });
-                }, 100);
+                setTimeout(
+                  () => flatListRef.current?.scrollToEnd({ animated: true }),
+                  100,
+                );
               }}
             >
               <Plus color={theme.primary} />
@@ -262,9 +405,10 @@ export default function GlobalHeader() {
             <TouchableOpacity
               style={[styles.saveButton, { backgroundColor: theme.primary }]}
               onPress={saveTemplate}
+              disabled={isSaving}
             >
               {isSaving ? (
-                <ActivityIndicator color="#000" />
+                <ActivityIndicator color={theme.background} />
               ) : (
                 <Text style={{ fontWeight: "bold", color: theme.background }}>
                   SALVAR TEMPLATE
@@ -288,13 +432,43 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   monthSelector: { flexDirection: "row", alignItems: "center", gap: 15 },
-  monthText: { fontSize: 16, fontWeight: "bold", textTransform: "capitalize" },
+  monthText: { fontSize: 18, fontWeight: "bold", textTransform: "capitalize" },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: "rgba(0,0,0,0.8)",
     justifyContent: "center",
     alignItems: "center",
   },
+  pickerModal: {
+    width: "80%",
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  pickerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    marginBottom: 20,
+  },
+  pickerYearText: { fontSize: 20, fontWeight: "bold" },
+  monthsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 10,
+  },
+  monthButton: {
+    width: "30%",
+    paddingVertical: 12,
+    alignItems: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  monthButtonText: { fontWeight: "bold", fontSize: 14 },
   menu: {
     position: "absolute",
     top: 100,
