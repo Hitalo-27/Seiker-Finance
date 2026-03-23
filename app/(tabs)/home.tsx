@@ -13,7 +13,7 @@ import {
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { X, Target, Wallet, Trash2 } from "lucide-react-native";
+import { X, Target, Wallet, Trash2, TrendingDown, TrendingUp } from "lucide-react-native";
 import { auth, db } from "../../FirebaseConfig";
 import { doc, onSnapshot, setDoc, getDoc } from "firebase/firestore";
 import { Colors } from "../../constants/theme";
@@ -30,6 +30,13 @@ import { useMonth } from "@/context/MonthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { ICON_LIST, PRESET_COLORS } from "../../constants/icons";
 import { useAlert } from "@/context/AlertContext";
+
+const formatCurrency = (value: number) => {
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+};
 
 export default function Home() {
   const { selectedMonthId, setSelectedMonthId } = useMonth();
@@ -330,7 +337,7 @@ export default function Home() {
                       { color: remaining < 0 ? theme.error : theme.primary },
                     ]}
                   >
-                    R$ {remaining.toFixed(2)}
+                    {formatCurrency(remaining)}
                   </Text>
                 </View>
 
@@ -353,7 +360,7 @@ export default function Home() {
                     <Wallet color={theme.primary} size={20} />
                     <Text style={styles.cardTitle}>Renda Mensal</Text>
                     <Text style={[styles.cardValue, { color: theme.primary }]}>
-                      R$ {(budget?.income || 0).toFixed(2)}
+                      {formatCurrency(budget?.income || 0)}
                     </Text>
                   </TouchableOpacity>
 
@@ -633,7 +640,7 @@ const createStyles = (theme: any) =>
       marginBottom: 25,
     },
     label: { color: theme.secondary, fontSize: 11, marginBottom: 4 },
-    balanceValue: { fontSize: 42, fontWeight: "bold", marginTop: 5 },
+    balanceValue: { fontSize: 32, fontWeight: "bold", marginTop: 5 },
     grid: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -643,13 +650,19 @@ const createStyles = (theme: any) =>
     card: {
       backgroundColor: theme.card,
       width: "48%",
-      padding: 20,
+      padding: 16,
       borderRadius: 18,
       borderWidth: 1,
-      gap: 8,
+      gap: 6,
+      position: 'relative',
     },
     cardTitle: { color: theme.secondary, fontSize: 11 },
-    cardValue: { fontSize: 17, fontWeight: "bold" },
+    cardValue: { fontSize: 15, fontWeight: "bold" },
+    typeIconContainer: {
+      position: 'absolute',
+      right: 12,
+      top: 16,
+    },
     addButton: {
       marginTop: 25,
       padding: 20,
@@ -731,22 +744,31 @@ const createStyles = (theme: any) =>
 function CategoryCard({ cat, styles, theme, onPress }: any) {
   const IconComp = ICON_LIST.find((i) => i.name === cat.icon)?.lib || Target;
   const color = cat.color || theme.text;
+  
+  const isInvestment = cat.categoryType === "investment";
+  const TypeIcon = isInvestment ? TrendingUp : TrendingDown;
+
   return (
     <TouchableOpacity
       style={[styles.card, { borderColor: color }]}
       onPress={onPress}
     >
-      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: 'center' }}>
         <IconComp color={color} size={20} />
-        {cat.installmentLabel && (
-          <Text style={{ color: color, fontSize: 10, fontWeight: "bold" }}>
-            {cat.installmentLabel}
-          </Text>
-        )}
+        
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          {cat.installmentLabel && (
+            <Text style={{ color: color, fontSize: 10, fontWeight: "bold" }}>
+              {cat.installmentLabel}
+            </Text>
+          )}
+          <TypeIcon color={isInvestment ? "#4ade80" : "#f87171"} size={14} />
+        </View>
       </View>
-      <Text style={styles.cardTitle}>{cat.name}</Text>
+      
+      <Text style={styles.cardTitle} numberOfLines={1}>{cat.name}</Text>
       <Text style={[styles.cardValue, { color: color }]}>
-        R$ {cat.value?.toFixed(2)}
+        {formatCurrency(cat.value || 0)}
       </Text>
     </TouchableOpacity>
   );
