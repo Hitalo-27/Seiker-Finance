@@ -9,6 +9,7 @@ import {
   FlatList,
   TextInput,
   ScrollView,
+  Image,
 } from "react-native";
 import {
   User,
@@ -23,13 +24,14 @@ import {
   Wallet,
   TrendingDown,
   TrendingUp,
+  CircleUser,
 } from "lucide-react-native";
 import { auth, db } from "../FirebaseConfig";
 import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { Colors } from "../constants/theme";
 import { useTheme } from "@/context/ThemeContext";
 import { useMonth } from "@/context/MonthContext";
-import { useRouter } from "expo-router";
+import { useRouter, usePathname } from "expo-router";
 import { ICON_LIST, PRESET_COLORS } from "../constants/icons";
 import { useAlert } from "@/context/AlertContext";
 
@@ -50,6 +52,7 @@ const MONTHS = [
 
 export default function GlobalHeader() {
   const router = useRouter();
+  const pathname = usePathname();
   const { theme: themeMode, toggleTheme } = useTheme();
   const theme = Colors[themeMode as keyof typeof Colors];
   const { selectedMonthId, setSelectedMonthId } = useMonth();
@@ -61,6 +64,9 @@ export default function GlobalHeader() {
 
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear());
+
+  const user = auth.currentUser;
+  const isProfilePage = pathname === "/profile";
 
   const flatListRef = useRef<FlatList>(null);
   const { showAlert } = useAlert();
@@ -103,13 +109,9 @@ export default function GlobalHeader() {
     const user = auth.currentUser;
     if (!user) return;
     setIsSaving(true);
-
     try {
       const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, {
-        categoryTemplate: templateCategories,
-      });
-
+      await updateDoc(userRef, { categoryTemplate: templateCategories });
       const monthRef = doc(
         db,
         "users",
@@ -119,7 +121,6 @@ export default function GlobalHeader() {
       );
       const monthSnap = await getDoc(monthRef);
       const monthData = monthSnap.data();
-
       if (
         !monthSnap.exists() ||
         !monthData?.categories ||
@@ -131,11 +132,10 @@ export default function GlobalHeader() {
           { merge: true },
         );
       }
-
       setTemplateModal(false);
       showAlert({
         title: "Sucesso",
-        message: "Template salvo e aplicado ao mês atual.",
+        message: "Template salvo!",
         type: "success",
         onConfirm: () => {},
       });
@@ -150,6 +150,8 @@ export default function GlobalHeader() {
       setIsSaving(false);
     }
   };
+
+  if (isProfilePage) return null;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -175,7 +177,11 @@ export default function GlobalHeader() {
       </View>
 
       <TouchableOpacity onPress={() => setMenuVisible(true)}>
-        <User color={theme.primary} size={28} />
+        {user?.photoURL ? (
+          <Image source={{ uri: user.photoURL }} style={styles.headerAvatar} />
+        ) : (
+          <User color={theme.primary} size={28} />
+        )}
       </TouchableOpacity>
 
       <Modal visible={pickerVisible} transparent animationType="fade">
@@ -242,6 +248,17 @@ export default function GlobalHeader() {
               { backgroundColor: theme.card, borderColor: theme.border },
             ]}
           >
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setMenuVisible(false);
+                router.push("/profile");
+              }}
+            >
+              <CircleUser color={theme.primary} size={18} />
+              <Text style={{ color: theme.text }}>Meu Perfil</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.menuItem} onPress={toggleTheme}>
               {themeMode === "dark" ? (
                 <Sun color={theme.primary} size={18} />
@@ -252,10 +269,12 @@ export default function GlobalHeader() {
                 Tema {themeMode === "dark" ? "Claro" : "Escuro"}
               </Text>
             </TouchableOpacity>
+
             <TouchableOpacity style={styles.menuItem} onPress={loadTemplate}>
               <Target color={theme.primary} size={18} />
               <Text style={{ color: theme.text }}>Meu Template</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.menuItem, { borderBottomWidth: 0 }]}
               onPress={handleLogout}
@@ -345,8 +364,9 @@ export default function GlobalHeader() {
                       const isSelected =
                         item.categoryType === type.id ||
                         (!item.categoryType && type.id === "expense");
-                      const activeColor = isSelected ? type.color : theme.primary;
-
+                      const activeColor = isSelected
+                        ? type.color
+                        : theme.primary;
                       return (
                         <TouchableOpacity
                           key={type.id}
@@ -497,6 +517,13 @@ const styles = StyleSheet.create({
   },
   monthSelector: { flexDirection: "row", alignItems: "center", gap: 15 },
   monthText: { fontSize: 18, fontWeight: "bold", textTransform: "capitalize" },
+  headerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.8)",

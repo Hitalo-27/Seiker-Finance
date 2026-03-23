@@ -13,7 +13,10 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
+  Image,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { Camera, User as UserIcon } from "lucide-react-native";
 import { Colors } from "../constants/theme";
 import { auth, db } from "../FirebaseConfig";
 import { useTheme } from "@/context/ThemeContext";
@@ -24,6 +27,7 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const { theme } = useTheme();
@@ -32,6 +36,19 @@ export default function Register() {
 
   const router = useRouter();
   const { showAlert } = useAlert();
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0].uri);
+    }
+  };
 
   const handleRegister = async () => {
     if (!name || !email || !password) {
@@ -64,12 +81,16 @@ export default function Register() {
       );
       const user = userCredential.user;
 
-      await updateProfile(user, { displayName: name });
+      await updateProfile(user, {
+        displayName: name,
+        photoURL: image,
+      });
 
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
         name: name,
         email: email,
+        profileImage: image,
         createdAt: new Date().toISOString(),
       });
 
@@ -108,6 +129,22 @@ export default function Register() {
             <Text style={styles.subTitle}>
               Inicie sua organização financeira no Seiker
             </Text>
+
+            <View style={styles.avatarContainer}>
+              <TouchableOpacity style={styles.avatarButton} onPress={pickImage}>
+                {image ? (
+                  <Image source={{ uri: image }} style={styles.avatarImage} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <UserIcon size={40} color={activeTheme.secondary} />
+                  </View>
+                )}
+                <View style={styles.cameraIconBadge}>
+                  <Camera size={16} color={activeTheme.background} />
+                </View>
+              </TouchableOpacity>
+              <Text style={styles.avatarLabel}>Foto de Perfil</Text>
+            </View>
 
             <View style={styles.inputContainer}>
               <TextInput
@@ -187,8 +224,46 @@ const createStyles = (activeTheme: any) =>
       color: activeTheme.text,
       fontSize: 14,
       textAlign: "center",
-      marginBottom: 40,
+      marginBottom: 30,
       opacity: 0.6,
+    },
+    avatarContainer: {
+      alignItems: "center",
+      marginBottom: 30,
+    },
+    avatarButton: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      backgroundColor: activeTheme.card,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 2,
+      borderColor: activeTheme.primary,
+      position: "relative",
+    },
+    avatarImage: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+    },
+    avatarPlaceholder: {
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    cameraIconBadge: {
+      position: "absolute",
+      bottom: 0,
+      right: 0,
+      backgroundColor: activeTheme.primary,
+      padding: 8,
+      borderRadius: 20,
+    },
+    avatarLabel: {
+      color: activeTheme.secondary,
+      fontSize: 12,
+      marginTop: 8,
+      fontWeight: "500",
     },
     inputContainer: { marginBottom: 20 },
     input: {
