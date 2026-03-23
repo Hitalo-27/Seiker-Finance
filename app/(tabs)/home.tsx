@@ -13,7 +13,14 @@ import {
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { X, Target, Wallet, Trash2, TrendingDown, TrendingUp } from "lucide-react-native";
+import {
+  X,
+  Target,
+  Wallet,
+  Trash2,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react-native";
 import { auth, db } from "../../FirebaseConfig";
 import { doc, onSnapshot, setDoc, getDoc } from "firebase/firestore";
 import { Colors } from "../../constants/theme";
@@ -52,9 +59,9 @@ export default function Home() {
   const [isNewCategory, setIsNewCategory] = useState(false);
   const [repeatMode, setRepeatMode] = useState<"split" | "replicate">("split");
 
-  const [categoryType, setCategoryType] = useState<"expense" | "investment">(
-    "expense",
-  );
+  const [categoryType, setCategoryType] = useState<
+    "expense" | "investment" | "income"
+  >("expense");
   const [inputValue, setInputValue] = useState("");
 
   const offset = useSharedValue(0);
@@ -131,21 +138,10 @@ export default function Home() {
     const unsubscribe = onSnapshot(budgetRef, async (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-
         setBudget({
-          income: data.income || 0,
           categories: data.categories || [],
         });
         setLoading(false);
-
-        if (!data.categories || data.categories.length === 0) {
-          const userSnap = await getDoc(doc(db, "users", user.uid));
-          const template = userSnap.data()?.categoryTemplate;
-
-          if (template && template.length > 0) {
-            await setDoc(budgetRef, { categories: template }, { merge: true });
-          }
-        }
       } else {
         await initializeMonth(user.uid, selectedMonthId);
       }
@@ -159,15 +155,13 @@ export default function Home() {
       const userSnap = await getDoc(doc(db, "users", uid));
       const userData = userSnap.data();
       const categoriesToUse = userData?.categoryTemplate || [];
-      const incomeToUse = userData?.defaultIncome || 0;
 
       const docRef = doc(db, "users", uid, "monthlyBudgets", monthId);
       await setDoc(docRef, {
-        income: incomeToUse,
         categories: categoriesToUse,
       });
     } catch (error) {
-      console.error("Erro ao inicializar:", error);
+      console.error(error);
       setLoading(false);
     }
   };
@@ -178,15 +172,6 @@ export default function Home() {
     setIsSaving(true);
 
     try {
-      const ref = doc(db, "users", user.uid, "monthlyBudgets", selectedMonthId);
-
-      if (editItem.id === "salary") {
-        await setDoc(ref, { income: editItem.value }, { merge: true });
-        setModalVisible(false);
-        setIsSaving(false);
-        return;
-      }
-
       const oldMonths = editItem.totalMonths || 1;
       const newMonths = parseInt(editItem.installments) || 1;
       const groupId = editItem.groupId || Date.now().toString();
@@ -223,25 +208,21 @@ export default function Home() {
         };
         delete categoryData.installments;
 
-        if (!docSnap.exists()) {
-          await setDoc(targetRef, { income: 0, categories: [categoryData] });
-        } else {
-          const data = docSnap.data();
-          let cats = [...(data.categories || [])];
-          const existsIndex = cats.findIndex(
-            (c) =>
-              c.id === categoryData.id ||
-              (c.groupId === groupId &&
-                c.installmentLabel === categoryData.installmentLabel),
-          );
+        const data = docSnap.exists() ? docSnap.data() : { categories: [] };
+        let cats = [...(data.categories || [])];
+        const existsIndex = cats.findIndex(
+          (c) =>
+            c.id === categoryData.id ||
+            (c.groupId === groupId &&
+              c.installmentLabel === categoryData.installmentLabel),
+        );
 
-          if (existsIndex > -1) {
-            cats[existsIndex] = categoryData;
-          } else {
-            cats.push(categoryData);
-          }
-          await setDoc(targetRef, { categories: cats }, { merge: true });
+        if (existsIndex > -1) {
+          cats[existsIndex] = categoryData;
+        } else {
+          cats.push(categoryData);
         }
+        await setDoc(targetRef, { categories: cats }, { merge: true });
       }
 
       if (!isNewCategory && newMonths < oldMonths) {
@@ -272,7 +253,6 @@ export default function Home() {
       }
       setModalVisible(false);
     } catch (error) {
-      console.error(error);
       showAlert({
         title: "FALHA NA SINCRONIA",
         message: "Erro ao salvar dados.",
@@ -299,12 +279,24 @@ export default function Home() {
     }
   };
 
+  const totalIncome =
+    budget?.categories
+      ?.filter((c: any) => c.categoryType === "income")
+      .reduce((acc: number, cat: any) => acc + (cat.value || 0), 0) || 0;
   const totalExpenses =
-    budget?.categories?.reduce(
-      (acc: number, cat: any) => acc + (cat.value || 0),
-      0,
-    ) || 0;
-  const remaining = (budget?.income || 0) - totalExpenses;
+    budget?.categories
+      ?.filter((c: any) => c.categoryType !== "income")
+      .reduce((acc: number, cat: any) => acc + (cat.value || 0), 0) || 0;
+  const remaining = totalIncome - totalExpenses;
+
+  const sortedCategories = useMemo(() => {
+    if (!budget?.categories) return [];
+    return [...budget.categories].sort((a, b) => {
+      if (a.categoryType === "income" && b.categoryType !== "income") return -1;
+      if (a.categoryType !== "income" && b.categoryType === "income") return 1;
+      return 0;
+    });
+  }, [budget?.categories]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -339,32 +331,20 @@ export default function Home() {
                   >
                     {formatCurrency(remaining)}
                   </Text>
+                  <View
+                    style={{ flexDirection: "row", gap: 20, marginTop: 10 }}
+                  >
+                    <Text style={{ color: "#4ade80", fontSize: 12 }}>
+                      Ganhos: {formatCurrency(totalIncome)}
+                    </Text>
+                    <Text style={{ color: theme.error, fontSize: 12 }}>
+                      Gastos: {formatCurrency(totalExpenses)}
+                    </Text>
+                  </View>
                 </View>
 
                 <View style={styles.grid}>
-                  <TouchableOpacity
-                    style={[styles.card, { borderColor: theme.primary }]}
-                    onPress={() =>
-                      openEditModal(
-                        {
-                          id: "salary",
-                          name: "Renda Mensal",
-                          value: budget?.income || 0,
-                          color: theme.primary,
-                          icon: "Wallet",
-                        },
-                        false,
-                      )
-                    }
-                  >
-                    <Wallet color={theme.primary} size={20} />
-                    <Text style={styles.cardTitle}>Renda Mensal</Text>
-                    <Text style={[styles.cardValue, { color: theme.primary }]}>
-                      {formatCurrency(budget?.income || 0)}
-                    </Text>
-                  </TouchableOpacity>
-
-                  {budget?.categories?.map((cat: any) => (
+                  {sortedCategories.map((cat: any) => (
                     <CategoryCard
                       key={cat.id}
                       cat={cat}
@@ -382,16 +362,17 @@ export default function Home() {
                       {
                         name: "",
                         value: 0,
-                        color: "#FFFFFF",
+                        color: theme.primary,
                         icon: "Target",
                         installments: "1",
+                        categoryType: "expense",
                       },
                       true,
                     )
                   }
                 >
                   <Text style={styles.addButtonText}>
-                    + Adicionar Categoria
+                    + Adicionar Novo Item
                   </Text>
                 </TouchableOpacity>
               </>
@@ -415,52 +396,66 @@ export default function Home() {
               </TouchableOpacity>
             </View>
 
+            <View style={[styles.repeatSelector, { marginBottom: 15 }]}>
+              <TouchableOpacity
+                style={[
+                  styles.repeatTab,
+                  categoryType === "income" && {
+                    backgroundColor: theme.primary,
+                  },
+                ]}
+                onPress={() => setCategoryType("income")}
+              >
+                <Text
+                  style={[
+                    styles.repeatTabText,
+                    categoryType === "income" && styles.repeatTabTextActive,
+                  ]}
+                >
+                  Ganhos
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.repeatTab,
+                  categoryType === "expense" && styles.repeatTabActive,
+                ]}
+                onPress={() => setCategoryType("expense")}
+              >
+                <Text
+                  style={[
+                    styles.repeatTabText,
+                    categoryType === "expense" && styles.repeatTabTextActive,
+                  ]}
+                >
+                  Despesa
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.repeatTab,
+                  categoryType === "investment" && styles.repeatTabActive,
+                ]}
+                onPress={() => setCategoryType("investment")}
+              >
+                <Text
+                  style={[
+                    styles.repeatTabText,
+                    categoryType === "investment" && styles.repeatTabTextActive,
+                  ]}
+                >
+                  Investimento
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             <TextInput
               style={[styles.input, { marginBottom: 15 }]}
               placeholder="Nome"
               placeholderTextColor={theme.secondary}
               value={editItem?.name}
               onChangeText={(t) => setEditItem({ ...editItem, name: t })}
-              editable={editItem?.id !== "salary"}
             />
-
-            {editItem?.id !== "salary" && (
-              <View style={[styles.repeatSelector, { marginBottom: 15 }]}>
-                <TouchableOpacity
-                  style={[
-                    styles.repeatTab,
-                    categoryType === "expense" && styles.repeatTabActive,
-                  ]}
-                  onPress={() => setCategoryType("expense")}
-                >
-                  <Text
-                    style={[
-                      styles.repeatTabText,
-                      categoryType === "expense" && styles.repeatTabTextActive,
-                    ]}
-                  >
-                    Despesa
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.repeatTab,
-                    categoryType === "investment" && styles.repeatTabActive,
-                  ]}
-                  onPress={() => setCategoryType("investment")}
-                >
-                  <Text
-                    style={[
-                      styles.repeatTabText,
-                      categoryType === "investment" &&
-                        styles.repeatTabTextActive,
-                    ]}
-                  >
-                    Investimento
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
 
             <View style={{ flexDirection: "row", gap: 10 }}>
               <View style={{ flex: 2 }}>
@@ -480,113 +475,101 @@ export default function Home() {
                   }}
                 />
               </View>
-              {editItem?.id !== "salary" && (
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.label}>Meses</Text>
-                  <TextInput
-                    style={styles.input}
-                    keyboardType="numeric"
-                    value={editItem?.installments}
-                    onChangeText={(t) =>
-                      setEditItem({ ...editItem, installments: t })
-                    }
-                  />
-                </View>
-              )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Meses</Text>
+                <TextInput
+                  style={styles.input}
+                  keyboardType="numeric"
+                  value={editItem?.installments}
+                  onChangeText={(t) =>
+                    setEditItem({ ...editItem, installments: t })
+                  }
+                />
+              </View>
             </View>
 
-            {editItem?.id !== "salary" && (
-              <View style={styles.repeatSelector}>
-                <TouchableOpacity
-                  style={[
-                    styles.repeatTab,
-                    repeatMode === "split" && styles.repeatTabActive,
-                  ]}
-                  onPress={() => setRepeatMode("split")}
-                >
-                  <Text
-                    style={[
-                      styles.repeatTabText,
-                      repeatMode === "split" && styles.repeatTabTextActive,
-                    ]}
-                  >
-                    Parcelar
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.repeatTab,
-                    repeatMode === "replicate" && styles.repeatTabActive,
-                  ]}
-                  onPress={() => setRepeatMode("replicate")}
-                >
-                  <Text
-                    style={[
-                      styles.repeatTabText,
-                      repeatMode === "replicate" && styles.repeatTabTextActive,
-                    ]}
-                  >
-                    Replicar
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {editItem?.id !== "salary" && (
-              <>
+            <View style={styles.repeatSelector}>
+              <TouchableOpacity
+                style={[
+                  styles.repeatTab,
+                  repeatMode === "split" && styles.repeatTabActive,
+                ]}
+                onPress={() => setRepeatMode("split")}
+              >
                 <Text
-                  style={[styles.label, { marginTop: 20, marginBottom: 10 }]}
+                  style={[
+                    styles.repeatTabText,
+                    repeatMode === "split" && styles.repeatTabTextActive,
+                  ]}
                 >
-                  Configurações Visuais
+                  Parcelar
                 </Text>
-                <FlatList
-                  data={ICON_LIST}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={[
-                        styles.iconBox,
-                        editItem?.icon === item.name && {
-                          borderColor: theme.primary,
-                        },
-                      ]}
-                      onPress={() =>
-                        setEditItem({ ...editItem, icon: item.name })
-                      }
-                    >
-                      <item.lib
-                        color={
-                          editItem?.icon === item.name
-                            ? theme.primary
-                            : theme.secondary
-                        }
-                        size={22}
-                      />
-                    </TouchableOpacity>
-                  )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.repeatTab,
+                  repeatMode === "replicate" && styles.repeatTabActive,
+                ]}
+                onPress={() => setRepeatMode("replicate")}
+              >
+                <Text
+                  style={[
+                    styles.repeatTabText,
+                    repeatMode === "replicate" && styles.repeatTabTextActive,
+                  ]}
+                >
+                  Replicar
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.label, { marginTop: 20, marginBottom: 10 }]}>
+              Configurações Visuais
+            </Text>
+            <FlatList
+              data={ICON_LIST}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.iconBox,
+                    editItem?.icon === item.name && {
+                      borderColor: theme.primary,
+                    },
+                  ]}
+                  onPress={() => setEditItem({ ...editItem, icon: item.name })}
+                >
+                  <item.lib
+                    color={
+                      editItem?.icon === item.name
+                        ? theme.primary
+                        : theme.secondary
+                    }
+                    size={22}
+                  />
+                </TouchableOpacity>
+              )}
+            />
+            <FlatList
+              data={PRESET_COLORS}
+              horizontal
+              style={{ marginTop: 15 }}
+              showsHorizontalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.colorCircle,
+                    {
+                      backgroundColor: item,
+                      borderWidth: editItem?.color === item ? 3 : 0,
+                      borderColor: theme.text,
+                    },
+                  ]}
+                  onPress={() => setEditItem({ ...editItem, color: item })}
                 />
-                <FlatList
-                  data={PRESET_COLORS}
-                  horizontal
-                  style={{ marginTop: 15 }}
-                  showsHorizontalScrollIndicator={false}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={[
-                        styles.colorCircle,
-                        {
-                          backgroundColor: item,
-                          borderWidth: editItem?.color === item ? 3 : 0,
-                          borderColor: theme.text,
-                        },
-                      ]}
-                      onPress={() => setEditItem({ ...editItem, color: item })}
-                    />
-                  )}
-                />
-              </>
-            )}
+              )}
+            />
 
             <TouchableOpacity
               style={[styles.saveButton, isSaving && { opacity: 0.8 }]}
@@ -602,7 +585,7 @@ export default function Home() {
               )}
             </TouchableOpacity>
 
-            {!isNewCategory && editItem?.id !== "salary" && (
+            {!isNewCategory && (
               <TouchableOpacity
                 style={styles.deleteButton}
                 onPress={handleDelete}
@@ -624,16 +607,10 @@ export default function Home() {
 const createStyles = (theme: any) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.background },
-    monthTitle: {
-      color: theme.text,
-      fontSize: 18,
-      fontWeight: "bold",
-      textTransform: "capitalize",
-    },
     scroll: { padding: 20, paddingBottom: 100 },
     mainCard: {
       backgroundColor: theme.card,
-      padding: 30,
+      padding: 25,
       borderRadius: 24,
       borderWidth: 2,
       alignItems: "center",
@@ -654,15 +631,10 @@ const createStyles = (theme: any) =>
       borderRadius: 18,
       borderWidth: 1,
       gap: 6,
-      position: 'relative',
+      position: "relative",
     },
     cardTitle: { color: theme.secondary, fontSize: 11 },
     cardValue: { fontSize: 15, fontWeight: "bold" },
-    typeIconContainer: {
-      position: 'absolute',
-      right: 12,
-      top: 16,
-    },
     addButton: {
       marginTop: 25,
       padding: 20,
@@ -744,29 +716,36 @@ const createStyles = (theme: any) =>
 function CategoryCard({ cat, styles, theme, onPress }: any) {
   const IconComp = ICON_LIST.find((i) => i.name === cat.icon)?.lib || Target;
   const color = cat.color || theme.text;
-  
+
   const isInvestment = cat.categoryType === "investment";
-  const TypeIcon = isInvestment ? TrendingUp : TrendingDown;
+  const isIncome = cat.categoryType === "income";
+  const TypeIcon = isIncome ? Wallet : isInvestment ? TrendingUp : TrendingDown;
 
   return (
     <TouchableOpacity
       style={[styles.card, { borderColor: color }]}
       onPress={onPress}
     >
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: 'center' }}>
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
         <IconComp color={color} size={20} />
-        
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
           {cat.installmentLabel && (
             <Text style={{ color: color, fontSize: 10, fontWeight: "bold" }}>
               {cat.installmentLabel}
             </Text>
           )}
-          <TypeIcon color={isInvestment ? "#4ade80" : "#f87171"} size={14} />
+          <TypeIcon color={color} size={14} />
         </View>
       </View>
-      
-      <Text style={styles.cardTitle} numberOfLines={1}>{cat.name}</Text>
+      <Text style={styles.cardTitle} numberOfLines={1}>
+        {cat.name}
+      </Text>
       <Text style={[styles.cardValue, { color: color }]}>
         {formatCurrency(cat.value || 0)}
       </Text>

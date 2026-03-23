@@ -14,6 +14,7 @@ import {
   PieChart as PieIcon,
   BarChart3,
   Calendar,
+  TrendingUp,
 } from "lucide-react-native";
 import { auth, db } from "../../FirebaseConfig";
 import {
@@ -39,6 +40,13 @@ import { useMonth } from "@/context/MonthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useFocusEffect } from "expo-router";
 
+const formatCurrency = (value: number) => {
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+};
+
 export default function Explore() {
   const { selectedMonthId, setSelectedMonthId } = useMonth();
   const { theme: themeMode } = useTheme();
@@ -46,7 +54,8 @@ export default function Explore() {
 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [budget, setBudget] = useState<any>(null);
-  const [yearlyData, setYearlyData] = useState<any[]>([]);
+  const [yearlyExpenses, setYearlyExpenses] = useState<any[]>([]);
+  const [yearlyInvestments, setYearlyInvestments] = useState<any[]>([]);
   const [loadingMonth, setLoadingMonth] = useState(true);
   const [loadingYear, setLoadingYear] = useState(false);
 
@@ -101,7 +110,7 @@ export default function Explore() {
     });
   }, [selectedMonthId]);
 
-  const fetchYearly = async () => {
+  const fetchYearlyData = async () => {
     const user = auth.currentUser;
     if (!user) return;
     setLoadingYear(true);
@@ -130,72 +139,107 @@ export default function Explore() {
       "Dez",
     ];
 
-    const formatted = months.map((mLabel, i) => {
+    const expenses: any[] = [];
+    const investments: any[] = [];
+
+    months.forEach((mLabel, i) => {
       const mIdx = (i + 1).toString().padStart(2, "0");
       const data = querySnap.docs
         .find((d) => d.id === `${selectedYear}-${mIdx}`)
         ?.data();
-      const exp =
-        data?.categories?.reduce(
-          (acc: number, c: any) => acc + (c.value || 0),
-          0,
-        ) || 0;
 
-      return {
-        value: exp,
+      const monthExp =
+        data?.categories
+          ?.filter((c: any) => c.categoryType === "expense")
+          .reduce((acc: number, c: any) => acc + (c.value || 0), 0) || 0;
+      const monthInv =
+        data?.categories
+          ?.filter((c: any) => c.categoryType === "investment")
+          .reduce((acc: number, c: any) => acc + (c.value || 0), 0) || 0;
+
+      expenses.push({
+        value: monthExp,
         label: mLabel,
         frontColor: theme.error,
+        showGradient: true,
+        gradientColor: "#7B1212",
         topLabelComponent: () => (
-          <Text style={styles.barTopValue}>R$ {exp.toFixed(0)}</Text>
+          <Text style={styles.barTopValue}>
+            {monthExp > 0 ? formatCurrency(monthExp) : ""}
+          </Text>
         ),
-      };
+      });
+
+      investments.push({
+        value: monthInv,
+        label: mLabel,
+        frontColor: "#60a5fa",
+        showGradient: true,
+        gradientColor: "#1e40af",
+        topLabelComponent: () => (
+          <Text style={styles.barTopValue}>
+            {monthInv > 0 ? formatCurrency(monthInv) : ""}
+          </Text>
+        ),
+      });
     });
 
-    setYearlyData(formatted);
+    setYearlyExpenses(expenses);
+    setYearlyInvestments(investments);
     setLoadingYear(false);
   };
 
   useFocusEffect(
     useCallback(() => {
-      fetchYearly();
+      fetchYearlyData();
     }, [selectedYear]),
   );
 
-  const { totalExpenses, totalInvestments, pieData } = useMemo(() => {
-    if (!budget?.categories)
-      return { totalExpenses: 0, totalInvestments: 0, pieData: [] };
+  const { totalIncome, totalExpenses, totalInvestments, pieData } =
+    useMemo(() => {
+      if (!budget?.categories)
+        return {
+          totalIncome: 0,
+          totalExpenses: 0,
+          totalInvestments: 0,
+          pieData: [],
+        };
 
-    const totals = budget.categories.reduce(
-      (acc: any, cat: any) => {
-        if (cat.categoryType === "investment") {
-          acc.totalInvestments += cat.value || 0;
-        } else {
-          acc.totalExpenses += cat.value || 0;
-        }
-        return acc;
-      },
-      { totalExpenses: 0, totalInvestments: 0 },
-    );
+      const totals = budget.categories.reduce(
+        (acc: any, cat: any) => {
+          if (cat.categoryType === "income") acc.totalIncome += cat.value || 0;
+          else if (cat.categoryType === "investment")
+            acc.totalInvestments += cat.value || 0;
+          else acc.totalExpenses += cat.value || 0;
+          return acc;
+        },
+        { totalIncome: 0, totalExpenses: 0, totalInvestments: 0 },
+      );
 
-    const formattedPie = budget.categories
-      .map((cat: any) => ({
-        value: cat.value || 0,
-        color: cat.color || theme.primary,
-        gradientColor: cat.color ? cat.color + "80" : theme.primary + "80",
-        text: cat.name,
-      }))
-      .filter((d: any) => d.value > 0);
+      const formattedPie = budget.categories
+        .filter((c: any) => c.categoryType !== "income" && (c.value || 0) > 0)
+        .map((cat: any) => ({
+          value: cat.value || 0,
+          color: cat.color || theme.primary,
+          gradientColor: cat.color ? cat.color + "80" : theme.primary + "80",
+          text: cat.name,
+        }));
 
-    return { ...totals, pieData: formattedPie };
-  }, [budget, theme.primary]);
+      return { ...totals, pieData: formattedPie };
+    }, [budget, theme.primary]);
 
   const barData = [
     {
-      value: budget?.income || 0,
-      label: "Renda",
-      frontColor: theme.primary,
+      value: totalIncome,
+      label: "Ganhos",
+      frontColor: "#4ade80",
       showGradient: true,
-      gradientColor: "#00575B",
+      gradientColor: "#065f46",
+      topLabelComponent: () => (
+        <Text style={styles.barTopValue}>
+          {totalIncome > 0 ? formatCurrency(totalIncome) : ""}
+        </Text>
+      ),
     },
     {
       value: totalExpenses,
@@ -203,13 +247,23 @@ export default function Explore() {
       frontColor: theme.error,
       showGradient: true,
       gradientColor: "#7B1212",
+      topLabelComponent: () => (
+        <Text style={styles.barTopValue}>
+          {totalExpenses > 0 ? formatCurrency(totalExpenses) : ""}
+        </Text>
+      ),
     },
     {
       value: totalInvestments,
       label: "Invest.",
-      frontColor: "#FFB800",
+      frontColor: "#60a5fa",
       showGradient: true,
-      gradientColor: "#7A5900",
+      gradientColor: "#1e40af",
+      topLabelComponent: () => (
+        <Text style={styles.barTopValue}>
+          {totalInvestments > 0 ? formatCurrency(totalInvestments) : ""}
+        </Text>
+      ),
     },
   ];
 
@@ -224,7 +278,9 @@ export default function Explore() {
             <View style={styles.chartCard}>
               <View style={styles.chartHeader}>
                 <PieIcon size={20} color={theme.primary} />
-                <Text style={styles.chartLabel}>Distribuição Mensal</Text>
+                <Text style={styles.chartLabel}>
+                  Distribuição de Gastos/Invest.
+                </Text>
               </View>
               <View style={styles.fixedContentArea}>
                 {loadingMonth ? (
@@ -235,19 +291,22 @@ export default function Explore() {
                       data={pieData}
                       donut
                       radius={105}
-                      innerRadius={70}
+                      innerRadius={75}
                       innerCircleColor={theme.card}
                       showGradient
                       centerLabelComponent={() => (
                         <View style={{ alignItems: "center" }}>
                           <Text style={styles.centerValue}>
-                            {(
-                              (totalExpenses / (budget?.income || 1)) *
-                              100
-                            ).toFixed(0)}
+                            {totalIncome > 0
+                              ? (
+                                  ((totalExpenses + totalInvestments) /
+                                    totalIncome) *
+                                  100
+                                ).toFixed(0)
+                              : 0}
                             %
                           </Text>
-                          <Text style={styles.centerLabel}>Consumido</Text>
+                          <Text style={styles.centerLabel}>Uso da Renda</Text>
                         </View>
                       )}
                     />
@@ -272,9 +331,7 @@ export default function Explore() {
             <View style={styles.chartCard}>
               <View style={styles.chartHeader}>
                 <BarChart3 size={20} color={theme.primary} />
-                <Text style={styles.chartLabel}>
-                  Renda x Gastos x Investimentos
-                </Text>
+                <Text style={styles.chartLabel}>Resumo do Mês</Text>
               </View>
               <View style={styles.fixedBarArea}>
                 {loadingMonth ? (
@@ -282,12 +339,13 @@ export default function Explore() {
                 ) : (
                   <BarChart
                     data={barData}
-                    barWidth={50}
-                    barBorderRadius={10}
+                    barWidth={55}
+                    barBorderRadius={8}
                     yAxisThickness={0}
                     xAxisThickness={0}
                     hideRules
                     noOfSections={3}
+                    yAxisExtraHeight={25}
                     yAxisTextStyle={{ color: theme.secondary, fontSize: 10 }}
                     xAxisLabelTextStyle={{
                       color: theme.text,
@@ -308,34 +366,62 @@ export default function Explore() {
             </TouchableOpacity>
             <View style={styles.yearTitleRow}>
               <Calendar size={18} color={theme.primary} />
-              <Text style={styles.yearTitle}>Resumo {selectedYear}</Text>
+              <Text style={styles.yearTitle}>Visão Anual {selectedYear}</Text>
             </View>
             <TouchableOpacity onPress={() => setSelectedYear((y) => y + 1)}>
               <ChevronRight color={theme.primary} />
             </TouchableOpacity>
           </View>
+
+          <Text style={styles.subChartTitle}>Gastos Anuais (Mês a Mês)</Text>
           <View style={styles.fixedYearlyArea}>
             {loadingYear ? (
-              <View style={styles.loadingInner}>
-                <ActivityIndicator color={theme.primary} size="large" />
-              </View>
+              <ActivityIndicator
+                color={theme.primary}
+                style={{ marginTop: 50 }}
+              />
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <BarChart
-                  data={yearlyData}
-                  height={200}
-                  barWidth={30}
-                  spacing={20}
-                  initialSpacing={10}
+                  data={yearlyExpenses}
+                  height={180}
+                  barWidth={55}
+                  spacing={18}
+                  barBorderRadius={6}
                   hideRules
                   yAxisThickness={0}
                   xAxisThickness={0}
+                  yAxisExtraHeight={25}
                   yAxisTextStyle={{ color: theme.secondary, fontSize: 10 }}
-                  xAxisLabelTextStyle={{
-                    color: theme.text,
-                    fontSize: 12,
-                    fontWeight: "bold",
-                  }}
+                  xAxisLabelTextStyle={{ color: theme.text, fontSize: 10 }}
+                />
+              </ScrollView>
+            )}
+          </View>
+
+          <View
+            style={[styles.chartHeader, { marginTop: 40, marginBottom: 15 }]}
+          >
+            <TrendingUp size={18} color="#60a5fa" />
+            <Text style={styles.subChartTitle}>Investimentos Anuais</Text>
+          </View>
+          <View style={styles.fixedYearlyArea}>
+            {loadingYear ? (
+              <ActivityIndicator color={theme.primary} />
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <BarChart
+                  data={yearlyInvestments}
+                  height={180}
+                  barWidth={55}
+                  spacing={18}
+                  barBorderRadius={6}
+                  hideRules
+                  yAxisThickness={0}
+                  xAxisThickness={0}
+                  yAxisExtraHeight={25}
+                  yAxisTextStyle={{ color: theme.secondary, fontSize: 10 }}
+                  xAxisLabelTextStyle={{ color: theme.text, fontSize: 10 }}
                 />
               </ScrollView>
             )}
@@ -353,7 +439,7 @@ const createStyles = (theme: any) =>
     chartCard: {
       backgroundColor: theme.card,
       borderRadius: 25,
-      padding: 25,
+      padding: 20,
       marginBottom: 20,
       borderWidth: 1,
       borderColor: theme.border,
@@ -362,47 +448,46 @@ const createStyles = (theme: any) =>
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
-      marginBottom: 25,
+      marginBottom: 20,
     },
     chartLabel: { color: theme.secondary, fontSize: 14, fontWeight: "600" },
+    subChartTitle: {
+      color: theme.text,
+      fontSize: 13,
+      fontWeight: "bold",
+      marginBottom: 10,
+    },
     fixedContentArea: {
-      height: 350,
+      minHeight: 320,
       justifyContent: "center",
       alignItems: "center",
-      width: "100%",
     },
     fixedBarArea: {
-      height: 250,
+      height: 240,
       justifyContent: "center",
       alignItems: "center",
-      width: "100%",
+      paddingTop: 10,
     },
-    fixedYearlyArea: { height: 280, width: "100%" },
-    loadingInner: {
-      height: 280,
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    centerValue: { color: theme.primary, fontSize: 24, fontWeight: "bold" },
-    centerLabel: { color: theme.secondary, fontSize: 11 },
+    fixedYearlyArea: { height: 240, paddingTop: 10 },
+    centerValue: { color: theme.primary, fontSize: 22, fontWeight: "bold" },
+    centerLabel: { color: theme.secondary, fontSize: 10 },
     legendGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
       justifyContent: "center",
-      gap: 15,
+      gap: 12,
       marginTop: 20,
     },
     legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
     dot: { width: 8, height: 8, borderRadius: 4 },
-    legendText: { color: theme.secondary, fontSize: 11 },
+    legendText: { color: theme.secondary, fontSize: 10 },
     yearSelector: {
       flexDirection: "row",
       justifyContent: "space-between",
-      width: "100%",
       alignItems: "center",
-      marginBottom: 20,
+      marginBottom: 25,
     },
     yearTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    yearTitle: { color: theme.text, fontSize: 18, fontWeight: "bold" },
-    barTopValue: { color: theme.secondary, fontSize: 8 },
+    yearTitle: { color: theme.text, fontSize: 17, fontWeight: "bold" },
+    barTopValue: { color: theme.secondary, fontSize: 9, marginBottom: 4 },
   });
