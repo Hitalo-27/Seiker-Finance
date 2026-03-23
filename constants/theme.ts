@@ -5,17 +5,22 @@ const tintColorDark = '#fff';
 
 export const Colors = {
  light: {
-    background: '#F5F7FA',      // Um cinza bem clarinho, mais moderno que o branco puro
+    background: '#F5F7FA',
     tint: tintColorLight,
-    icon: '#64748B',            // Slate grey para ícones
+    icon: '#64748B',
     tabIconDefault: '#94A3B8',
     tabIconSelected: tintColorLight,
-    card: '#FFFFFF',            // Cards brancos para destacar do fundo
-    primary: '#00ACC1',         // Ciano "vibrante mas legível"
-    secondary: '#71717A',       // Texto secundário (cinza médio)
-    text: '#121417',            // Quase preto para máximo contraste
-    error: '#E53935',           // Vermelho um pouco mais fechado
-    border: '#E2E8F0'           // Bordas sutis
+    card: '#FFFFFF',
+    primary: '#00ACC1',
+    secondary: '#71717A',
+    text: '#121417',
+    error: '#E53935',
+    errorGradient: '#7B1212',
+    border: '#E2E8F0',
+    success: '#4ade80',
+    successGradient: '#065f46',
+    warning : '#FFB800',
+    warningGradient: '#7A5900',
   },
   dark: {
     background: '#0B0E11',
@@ -28,19 +33,20 @@ export const Colors = {
     secondary: '#8B949E',
     text: '#FFFFFF',
     error: '#FF5252',
-    border: '#2C343B'
+    errorGradient: '#7B1212',
+    border: '#2C343B',
+    success: '#4ade80',
+    successGradient: '#065f46',
+    warning : '#FFB800',
+    warningGradient: '#7A5900',
   },
 };
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {
