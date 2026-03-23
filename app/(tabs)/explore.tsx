@@ -162,7 +162,7 @@ export default function Explore() {
         label: mLabel,
         frontColor: theme.error,
         showGradient: true,
-        gradientColor: "#7B1212",
+        gradientColor: theme.errorGradient,
         topLabelComponent: () => (
           <Text style={styles.barTopValue}>
             {monthExp > 0 ? formatCurrency(monthExp) : ""}
@@ -173,9 +173,9 @@ export default function Explore() {
       investments.push({
         value: monthInv,
         label: mLabel,
-        frontColor: "#60a5fa",
+        frontColor: theme.warning,
         showGradient: true,
-        gradientColor: "#1e40af",
+        gradientColor: theme.warningGradient,
         topLabelComponent: () => (
           <Text style={styles.barTopValue}>
             {monthInv > 0 ? formatCurrency(monthInv) : ""}
@@ -232,9 +232,9 @@ export default function Explore() {
     {
       value: totalIncome,
       label: "Ganhos",
-      frontColor: "#4ade80",
+      frontColor: theme.success,
       showGradient: true,
-      gradientColor: "#065f46",
+      gradientColor: theme.successGradient,
       topLabelComponent: () => (
         <Text style={styles.barTopValue}>
           {totalIncome > 0 ? formatCurrency(totalIncome) : ""}
@@ -246,7 +246,7 @@ export default function Explore() {
       label: "Gastos",
       frontColor: theme.error,
       showGradient: true,
-      gradientColor: "#7B1212",
+      gradientColor: theme.errorGradient,
       topLabelComponent: () => (
         <Text style={styles.barTopValue}>
           {totalExpenses > 0 ? formatCurrency(totalExpenses) : ""}
@@ -256,9 +256,9 @@ export default function Explore() {
     {
       value: totalInvestments,
       label: "Invest.",
-      frontColor: "#60a5fa",
+      frontColor: theme.warning,
       showGradient: true,
-      gradientColor: "#1e40af",
+      gradientColor: theme.warningGradient,
       topLabelComponent: () => (
         <Text style={styles.barTopValue}>
           {totalInvestments > 0 ? formatCurrency(totalInvestments) : ""}
@@ -402,12 +402,12 @@ export default function Explore() {
           <View
             style={[styles.chartHeader, { marginTop: 40, marginBottom: 15 }]}
           >
-            <TrendingUp size={18} color="#60a5fa" />
+            <TrendingUp size={18} color={theme.warning} />
             <Text style={styles.subChartTitle}>Investimentos Anuais</Text>
           </View>
           <View style={styles.fixedYearlyArea}>
             {loadingYear ? (
-              <ActivityIndicator color={theme.primary} />
+              <ActivityIndicator color={theme.warning} />
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <BarChart

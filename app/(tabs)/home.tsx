@@ -334,7 +334,7 @@ export default function Home() {
                   <View
                     style={{ flexDirection: "row", gap: 20, marginTop: 10 }}
                   >
-                    <Text style={{ color: "#4ade80", fontSize: 12 }}>
+                    <Text style={{ color: theme.success, fontSize: 12 }}>
                       Ganhos: {formatCurrency(totalIncome)}
                     </Text>
                     <Text style={{ color: theme.error, fontSize: 12 }}>
@@ -401,7 +401,7 @@ export default function Home() {
                 style={[
                   styles.repeatTab,
                   categoryType === "income" && {
-                    backgroundColor: theme.primary,
+                    backgroundColor: theme.success,
                   },
                 ]}
                 onPress={() => setCategoryType("income")}
@@ -418,7 +418,9 @@ export default function Home() {
               <TouchableOpacity
                 style={[
                   styles.repeatTab,
-                  categoryType === "expense" && styles.repeatTabActive,
+                  categoryType === "expense" && {
+                    backgroundColor: theme.error,
+                  },
                 ]}
                 onPress={() => setCategoryType("expense")}
               >
@@ -434,7 +436,9 @@ export default function Home() {
               <TouchableOpacity
                 style={[
                   styles.repeatTab,
-                  categoryType === "investment" && styles.repeatTabActive,
+                  categoryType === "investment" && {
+                    backgroundColor: theme.warning,
+                  }
                 ]}
                 onPress={() => setCategoryType("investment")}
               >
