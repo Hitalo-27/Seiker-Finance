@@ -7,16 +7,17 @@ import { useTheme } from "@/context/ThemeContext";
 import GlobalHeader from "@/components/Header";
 import { StyleSheet, Image } from "react-native";
 import { auth } from "@/FirebaseConfig";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabLayout() {
   const { theme: themeMode } = useTheme();
   const theme = Colors[themeMode as keyof typeof Colors];
   const user = auth.currentUser;
+  const insets = useSafeAreaInsets();
 
   return (
     <MonthProvider>
       <GlobalHeader />
-
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: theme.primary,
@@ -25,8 +26,8 @@ export default function TabLayout() {
             backgroundColor: theme.background,
             borderTopWidth: 1,
             borderTopColor: theme.border,
-            height: 65,
-            paddingBottom: 10,
+            height: 65 + (insets.bottom > 0 ? insets.bottom - 10 : 0),
+            paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
             paddingTop: 5,
           },
           headerShown: false,
