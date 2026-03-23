@@ -20,7 +20,15 @@ import {
   Tv,
   Briefcase,
   Music,
-  ShoppingCart
+  ShoppingCart,
+  CreditCard,
+  Landmark,
+  Coins,
+  Banknote,
+  PiggyBank,
+  Percent,
+  CircleDollarSign,
+  ReceiptText,
 } from "lucide-react-native";
 
 export const ICON_LIST = [
@@ -28,7 +36,17 @@ export const ICON_LIST = [
   { name: "TrendingUp", lib: TrendingUp },
   { name: "TrendingDown", lib: TrendingDown },
   { name: "Wallet", lib: Wallet },
+  { name: "CreditCard", lib: CreditCard },
+  { name: "Landmark", lib: Landmark },
+  { name: "Coins", lib: Coins },
+  { name: "Banknote", lib: Banknote },
+  { name: "PiggyBank", lib: PiggyBank },
+  { name: "CircleDollarSign", lib: CircleDollarSign },
+  { name: "ReceiptText", lib: ReceiptText },
+  { name: "Percent", lib: Percent },
   { name: "ShoppingBag", lib: ShoppingBag },
+  { name: "ShoppingCart", lib: ShoppingCart },
+  { name: "Smartphone", lib: Smartphone },
   { name: "Coffee", lib: Coffee },
   { name: "Utensils", lib: Utensils },
   { name: "Car", lib: Car },
@@ -39,13 +57,11 @@ export const ICON_LIST = [
   { name: "GraduationCap", lib: GraduationCap },
   { name: "Plane", lib: Plane },
   { name: "Gift", lib: Gift },
-  { name: "Smartphone", lib: Smartphone },
   { name: "Zap", lib: Zap },
   { name: "Droplets", lib: Droplets },
   { name: "Tv", lib: Tv },
   { name: "Briefcase", lib: Briefcase },
   { name: "Music", lib: Music },
-  { name: "ShoppingCart", lib: ShoppingCart },
 ];
 
 export const PRESET_COLORS = [
