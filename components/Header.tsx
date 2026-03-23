@@ -20,6 +20,9 @@ import {
   Plus,
   Sun,
   Moon,
+  Wallet,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react-native";
 import { auth, db } from "../FirebaseConfig";
 import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
@@ -249,12 +252,10 @@ export default function GlobalHeader() {
                 Tema {themeMode === "dark" ? "Claro" : "Escuro"}
               </Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.menuItem} onPress={loadTemplate}>
               <Target color={theme.primary} size={18} />
               <Text style={{ color: theme.text }}>Meu Template</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               style={[styles.menuItem, { borderBottomWidth: 0 }]}
               onPress={handleLogout}
@@ -278,7 +279,7 @@ export default function GlobalHeader() {
               <Text
                 style={{ color: theme.text, fontSize: 18, fontWeight: "bold" }}
               >
-                Configurar Template
+                Meu Template
               </Text>
               <TouchableOpacity onPress={() => setTemplateModal(false)}>
                 <X color={theme.text} />
@@ -301,7 +302,7 @@ export default function GlobalHeader() {
                     <TextInput
                       style={[styles.templateInput, { color: theme.text }]}
                       value={item.name}
-                      placeholder="Nome da categoria"
+                      placeholder="Nome"
                       placeholderTextColor={theme.secondary}
                       onChangeText={(text) => {
                         const newCats = [...templateCategories];
@@ -318,6 +319,68 @@ export default function GlobalHeader() {
                     >
                       <Trash2 color={theme.error} size={20} />
                     </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.typeSelector}>
+                    {[
+                      {
+                        id: "income",
+                        label: "Ganhos",
+                        icon: Wallet,
+                        color: theme.success,
+                      },
+                      {
+                        id: "expense",
+                        label: "Despesa",
+                        icon: TrendingDown,
+                        color: theme.error,
+                      },
+                      {
+                        id: "investment",
+                        label: "Invest.",
+                        icon: TrendingUp,
+                        color: theme.warning,
+                      },
+                    ].map((type) => {
+                      const isSelected =
+                        item.categoryType === type.id ||
+                        (!item.categoryType && type.id === "expense");
+                      const activeColor = isSelected ? type.color : theme.primary;
+
+                      return (
+                        <TouchableOpacity
+                          key={type.id}
+                          style={[
+                            styles.typeTab,
+                            isSelected && { backgroundColor: activeColor },
+                          ]}
+                          onPress={() => {
+                            const newCats = [...templateCategories];
+                            newCats[index].categoryType = type.id;
+                            setTemplateCategories(newCats);
+                          }}
+                        >
+                          <type.icon
+                            size={12}
+                            color={
+                              isSelected ? theme.background : theme.secondary
+                            }
+                          />
+                          <Text
+                            style={[
+                              styles.typeTabText,
+                              {
+                                color: isSelected
+                                  ? theme.background
+                                  : theme.secondary,
+                              },
+                            ]}
+                          >
+                            {type.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
 
                   <ScrollView
@@ -387,10 +450,11 @@ export default function GlobalHeader() {
                   ...templateCategories,
                   {
                     id: Date.now().toString(),
-                    name: "Nova Categoria",
+                    name: "Novo Item",
                     value: 0,
-                    color: "#FFF",
+                    color: theme.primary,
                     icon: "Target",
+                    categoryType: "expense",
                   },
                 ]);
                 setTimeout(
@@ -489,7 +553,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: "95%",
-    height: "95%",
+    height: "90%",
     borderRadius: 25,
     padding: 20,
     borderWidth: 1,
@@ -527,14 +591,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
-  templateInput: {
-    fontSize: 16,
-    fontWeight: "bold",
-    flex: 1,
-  },
-  horizontalSelector: {
-    marginTop: 10,
-  },
+  templateInput: { fontSize: 16, fontWeight: "bold", flex: 1 },
+  horizontalSelector: { marginTop: 10 },
   iconOption: {
     padding: 8,
     borderRadius: 8,
@@ -542,10 +600,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
   },
-  colorOption: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    marginRight: 10,
+  colorOption: { width: 24, height: 24, borderRadius: 12, marginRight: 10 },
+  typeSelector: {
+    flexDirection: "row",
+    backgroundColor: "rgba(0,0,0,0.2)",
+    borderRadius: 8,
+    padding: 2,
+    gap: 2,
   },
+  typeTab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  typeTabText: { fontSize: 10, fontWeight: "bold" },
 });
