@@ -15,6 +15,7 @@ import {
   BarChart3,
   Calendar,
   TrendingUp,
+  TrendingDown,
 } from "lucide-react-native";
 import { auth, db } from "../../FirebaseConfig";
 import {
@@ -373,7 +374,12 @@ export default function Explore() {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.subChartTitle}>Gastos Anuais (Mês a Mês)</Text>
+          <View
+            style={[styles.chartHeader, {marginBottom: 15 }]}
+          >
+            <TrendingDown size={18} color={theme.error} />
+            <Text style={styles.subChartTitle}>Gastos Anuais</Text>
+          </View>
           <View style={styles.fixedYearlyArea}>
             {loadingYear ? (
               <ActivityIndicator

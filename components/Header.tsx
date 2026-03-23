@@ -197,13 +197,19 @@ export default function GlobalHeader() {
             ]}
           >
             <View style={styles.pickerHeader}>
-              <TouchableOpacity onPress={() => setPickerYear(pickerYear - 1)}>
+              <TouchableOpacity
+                onPress={() => setPickerYear(pickerYear - 1)}
+                hitSlop={{ top: 20, bottom: 20, left: 20, right: 50 }}
+              >
                 <ChevronLeft color={theme.primary} size={24} />
               </TouchableOpacity>
               <Text style={[styles.pickerYearText, { color: theme.text }]}>
                 {pickerYear}
               </Text>
-              <TouchableOpacity onPress={() => setPickerYear(pickerYear + 1)}>
+              <TouchableOpacity
+                onPress={() => setPickerYear(pickerYear + 1)}
+                hitSlop={{ top: 20, bottom: 20, left: 50, right: 20 }}
+              >
                 <ChevronRight color={theme.primary} size={24} />
               </TouchableOpacity>
             </View>
