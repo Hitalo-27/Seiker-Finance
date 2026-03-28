@@ -299,7 +299,7 @@ export default function Home() {
   }, [budget?.categories]);
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
+    <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
       <GestureDetector gesture={swipeGesture}>
         <Animated.View style={animatedContentStyle}>
           <ScrollView
