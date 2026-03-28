@@ -3,7 +3,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from "firebase/auth";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -16,26 +16,56 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from "react-native";
+import * as LocalAuthentication from "expo-local-authentication";
+import * as SecureStore from "expo-secure-store";
 import { auth } from "../FirebaseConfig";
 import { Colors } from "../constants/theme";
 import { useTheme } from "@/context/ThemeContext";
-import { Sun, Moon } from "lucide-react-native";
+import { Sun, Moon, Fingerprint } from "lucide-react-native";
 import { useAlert } from "@/context/AlertContext";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isBiometricSupported, setIsBiometricSupported] = useState(false);
+
   const router = useRouter();
   const { showAlert } = useAlert();
-
   const { theme, toggleTheme } = useTheme();
   const activeTheme = Colors[theme as keyof typeof Colors];
   const styles = createStyles(activeTheme);
+
+  useEffect(() => {
+    (async () => {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      setIsBiometricSupported(compatible);
+    })();
+  }, []);
+
+  const saveCredentials = async (email: string, pass: string) => {
+    await SecureStore.setItemAsync("user_email", email);
+    await SecureStore.setItemAsync("user_password", pass);
+  };
 
   const handleAuth = async (type: "login" | "register") => {
     try {
       if (type === "login") {
         await signInWithEmailAndPassword(auth, email, password);
+
+        const hasSaved = await SecureStore.getItemAsync("user_email");
+        if (!hasSaved && isBiometricSupported) {
+          showAlert({
+            title: "Biometria",
+            message:
+              "Deseja ativar o login por digital para os próximos acessos?",
+            type: "info",
+            onConfirm: () => {
+              saveCredentials(email, password);
+              router.replace("/home");
+            },
+          });
+          return;
+        }
       } else {
         await createUserWithEmailAndPassword(auth, email, password);
       }
@@ -47,6 +77,41 @@ export default function Login() {
         type: "error",
         onConfirm: () => {},
       });
+    }
+  };
+
+  const handleBiometricAuth = async () => {
+    const savedEmail = await SecureStore.getItemAsync("user_email");
+    const savedPass = await SecureStore.getItemAsync("user_password");
+
+    if (!savedEmail || !savedPass) {
+      showAlert({
+        title: "Ops!",
+        message:
+          "Nenhuma biometria cadastrada. Faça login manualmente primeiro.",
+        type: "error",
+        onConfirm: () => {},
+      });
+      return;
+    }
+
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage: "Login com Biometria",
+      fallbackLabel: "Usar senha",
+    });
+
+    if (result.success) {
+      try {
+        await signInWithEmailAndPassword(auth, savedEmail, savedPass);
+        router.replace("/home");
+      } catch (e) {
+        showAlert({
+          title: "Erro",
+          message: "Falha ao autenticar com dados salvos.",
+          type: "error",
+          onConfirm: () => {},
+        });
+      }
     }
   };
 
@@ -81,6 +146,7 @@ export default function Login() {
                 placeholder="Email"
                 placeholderTextColor={activeTheme.secondary}
                 onChangeText={setEmail}
+                value={email}
                 autoCapitalize="none"
                 keyboardType="email-address"
               />
@@ -90,6 +156,7 @@ export default function Login() {
                 placeholderTextColor={activeTheme.secondary}
                 secureTextEntry
                 onChangeText={setPassword}
+                value={password}
               />
             </View>
 
@@ -99,6 +166,24 @@ export default function Login() {
             >
               <Text style={styles.buttonText}>ACESSAR SISTEMA</Text>
             </TouchableOpacity>
+
+            {isBiometricSupported && (
+              <TouchableOpacity
+                style={styles.biometricButton}
+                onPress={handleBiometricAuth}
+              >
+                <Fingerprint color={activeTheme.primary} size={40} />
+                <Text
+                  style={{
+                    color: activeTheme.primary,
+                    marginTop: 8,
+                    fontSize: 12,
+                  }}
+                >
+                  USAR DIGITAL
+                </Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.secondaryButton}
@@ -174,5 +259,10 @@ const createStyles = (activeTheme: any) =>
     secondaryButtonText: {
       color: activeTheme.primary,
       fontSize: 14,
+    },
+    biometricButton: {
+      marginTop: 30,
+      alignItems: "center",
+      justifyContent: "center",
     },
   });
