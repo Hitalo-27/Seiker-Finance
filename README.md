@@ -30,7 +30,7 @@ O **Seiker Finance** é um ecossistema de gestão financeira pessoal desenvolvid
 
 1. Clone o repositório:
 ```bash
-git clone [https://github.com/seu-usuario/seiker-finance.git](https://github.com/seu-usuario/seiker-finance.git)
+git clone https://github.com/Hitalo-27/Seiker-Finance.git
 ```
 
 2. Instale as dependências:
