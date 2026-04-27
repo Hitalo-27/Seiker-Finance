@@ -16,6 +16,7 @@ import {
   Calendar,
   TrendingUp,
   TrendingDown,
+  LayoutGrid,
 } from "lucide-react-native";
 import { auth, db } from "../../FirebaseConfig";
 import {
@@ -57,6 +58,13 @@ export default function Explore() {
   const [budget, setBudget] = useState<any>(null);
   const [yearlyExpenses, setYearlyExpenses] = useState<any[]>([]);
   const [yearlyInvestments, setYearlyInvestments] = useState<any[]>([]);
+
+  const [totalsAnuais, setTotalsAnuais] = useState({
+    income: 0,
+    expense: 0,
+    investment: 0,
+  });
+
   const [loadingMonth, setLoadingMonth] = useState(true);
   const [loadingYear, setLoadingYear] = useState(false);
 
@@ -143,6 +151,10 @@ export default function Explore() {
     const expenses: any[] = [];
     const investments: any[] = [];
 
+    let sumIncome = 0;
+    let sumExpense = 0;
+    let sumInvestment = 0;
+
     months.forEach((mLabel, i) => {
       const mIdx = (i + 1).toString().padStart(2, "0");
       const data = querySnap.docs
@@ -157,6 +169,14 @@ export default function Explore() {
         data?.categories
           ?.filter((c: any) => c.categoryType === "investment")
           .reduce((acc: number, c: any) => acc + (c.value || 0), 0) || 0;
+      const monthInc =
+        data?.categories
+          ?.filter((c: any) => c.categoryType === "income")
+          .reduce((acc: number, c: any) => acc + (c.value || 0), 0) || 0;
+
+      sumIncome += monthInc;
+      sumExpense += monthExp;
+      sumInvestment += monthInv;
 
       expenses.push({
         value: monthExp,
@@ -185,6 +205,11 @@ export default function Explore() {
       });
     });
 
+    setTotalsAnuais({
+      income: sumIncome,
+      expense: sumExpense,
+      investment: sumInvestment,
+    });
     setYearlyExpenses(expenses);
     setYearlyInvestments(investments);
     setLoadingYear(false);
@@ -195,6 +220,47 @@ export default function Explore() {
       fetchYearlyData();
     }, [selectedYear]),
   );
+
+  const yearlyConsolidatedData = [
+    {
+      value: totalsAnuais.income,
+      label: "Ganhos",
+      frontColor: theme.success,
+      showGradient: true,
+      gradientColor: theme.successGradient,
+      topLabelComponent: () => (
+        <Text style={styles.barTopValue}>
+          {totalsAnuais.income > 0 ? formatCurrency(totalsAnuais.income) : ""}
+        </Text>
+      ),
+    },
+    {
+      value: totalsAnuais.expense,
+      label: "Gastos",
+      frontColor: theme.error,
+      showGradient: true,
+      gradientColor: theme.errorGradient,
+      topLabelComponent: () => (
+        <Text style={styles.barTopValue}>
+          {totalsAnuais.expense > 0 ? formatCurrency(totalsAnuais.expense) : ""}
+        </Text>
+      ),
+    },
+    {
+      value: totalsAnuais.investment,
+      label: "Invest.",
+      frontColor: theme.warning,
+      showGradient: true,
+      gradientColor: theme.warningGradient,
+      topLabelComponent: () => (
+        <Text style={styles.barTopValue}>
+          {totalsAnuais.investment > 0
+            ? formatCurrency(totalsAnuais.investment)
+            : ""}
+        </Text>
+      ),
+    },
+  ];
 
   const { totalIncome, totalExpenses, totalInvestments, pieData } =
     useMemo(() => {
@@ -340,7 +406,7 @@ export default function Explore() {
                 ) : (
                   <BarChart
                     data={barData}
-                    barWidth={55}
+                    barWidth={60}
                     barBorderRadius={8}
                     yAxisThickness={0}
                     xAxisThickness={0}
@@ -374,11 +440,40 @@ export default function Explore() {
             </TouchableOpacity>
           </View>
 
-          <View
-            style={[styles.chartHeader, {marginBottom: 15 }]}
-          >
+          <View style={[styles.chartHeader, { marginBottom: 15 }]}>
+            <LayoutGrid size={18} color={theme.primary} />
+            <Text style={[styles.chartLabel, { marginBottom: 0 }]}>
+              Resumo Consolidado Anual
+            </Text>
+          </View>
+          <View style={[styles.fixedBarArea, { marginBottom: 30 }]}>
+            {loadingYear ? (
+              <ActivityIndicator color={theme.primary} />
+            ) : (
+              <BarChart
+                data={yearlyConsolidatedData}
+                barWidth={60}
+                barBorderRadius={8}
+                yAxisThickness={0}
+                xAxisThickness={0}
+                hideRules
+                noOfSections={3}
+                yAxisExtraHeight={35}
+                yAxisTextStyle={{ color: theme.secondary, fontSize: 10 }}
+                xAxisLabelTextStyle={{
+                  color: theme.text,
+                  fontSize: 11,
+                  fontWeight: "bold",
+                }}
+              />
+            )}
+          </View>
+
+          <View style={[styles.chartHeader, { marginBottom: 15 }]}>
             <TrendingDown size={18} color={theme.error} />
-            <Text style={styles.subChartTitle}>Gastos Anuais</Text>
+            <Text style={[styles.chartLabel, { marginBottom: 0 }]}>
+              Gastos Mensais
+            </Text>
           </View>
           <View style={styles.fixedYearlyArea}>
             {loadingYear ? (
@@ -409,7 +504,9 @@ export default function Explore() {
             style={[styles.chartHeader, { marginTop: 40, marginBottom: 15 }]}
           >
             <TrendingUp size={18} color={theme.warning} />
-            <Text style={styles.subChartTitle}>Investimentos Anuais</Text>
+            <Text style={[styles.chartLabel, { marginBottom: 0 }]}>
+              Investimentos Mensais
+            </Text>
           </View>
           <View style={styles.fixedYearlyArea}>
             {loadingYear ? (
