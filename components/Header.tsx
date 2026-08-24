@@ -32,7 +32,7 @@ import { Colors } from "../constants/theme";
 import { useTheme } from "@/context/ThemeContext";
 import { useMonth } from "@/context/MonthContext";
 import { useRouter, usePathname } from "expo-router";
-import { ICON_LIST, PRESET_COLORS } from "../constants/icons";
+import { ICON_LIST, PRESET_COLORS, getThemeColor } from "../constants/icons";
 import { useAlert } from "@/context/AlertContext";
 
 const MONTHS = [
@@ -320,7 +320,7 @@ export default function GlobalHeader() {
                 <View
                   style={[
                     styles.templateCard,
-                    { borderColor: item.color || theme.border },
+                    { borderColor: getThemeColor(item.color || theme.border, themeMode) },
                   ]}
                 >
                   <View style={styles.templateHeaderRow}>
@@ -451,7 +451,7 @@ export default function GlobalHeader() {
                         key={color}
                         style={[
                           styles.colorOption,
-                          { backgroundColor: color },
+                          { backgroundColor: getThemeColor(color, themeMode) },
                           item.color === color && {
                             borderWidth: 2,
                             borderColor: theme.text,

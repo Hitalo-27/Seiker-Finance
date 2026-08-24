@@ -41,6 +41,7 @@ import Animated, {
 import { useMonth } from "@/context/MonthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useFocusEffect } from "expo-router";
+import { getThemeColor } from "../../constants/icons";
 
 const formatCurrency = (value: number) => {
   return value.toLocaleString("pt-BR", {
@@ -285,12 +286,15 @@ export default function Explore() {
 
       const formattedPie = budget.categories
         .filter((c: any) => c.categoryType !== "income" && (c.value || 0) > 0)
-        .map((cat: any) => ({
-          value: cat.value || 0,
-          color: cat.color || theme.primary,
-          gradientColor: cat.color ? cat.color + "80" : theme.primary + "80",
-          text: cat.name,
-        }));
+        .map((cat: any) => {
+          const resolvedColor = getThemeColor(cat.color || theme.primary, themeMode);
+          return {
+            value: cat.value || 0,
+            color: resolvedColor,
+            gradientColor: resolvedColor + "80",
+            text: cat.name,
+          };
+        });
 
       return { ...totals, pieData: formattedPie };
     }, [budget, theme.primary]);

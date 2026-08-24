@@ -87,3 +87,35 @@ export const PRESET_COLORS = [
   "#DDA15E",
   "#606C38",
 ];
+
+export const COLOR_MAP: Record<string, { dark: string, light: string }> = {
+  "#00F5FF": { dark: "#00F5FF", light: "#0088AA" },
+  "#FF00E5": { dark: "#FF00E5", light: "#CC00B8" },
+  "#00FF85": { dark: "#00FF85", light: "#009955" },
+  "#A020F0": { dark: "#A020F0", light: "#600099" },
+  "#FFB800": { dark: "#FFB800", light: "#CC8800" },
+  "#FF5252": { dark: "#FF5252", light: "#CC0000" },
+  "#FFFFFF": { dark: "#FFFFFF", light: "#1A1A1A" },
+  "#8B4513": { dark: "#8B4513", light: "#663300" },
+  "#F50": { dark: "#F50", light: "#CC4400" },
+  "#4CC9F0": { dark: "#4CC9F0", light: "#007799" },
+  "#4895EF": { dark: "#4895EF", light: "#2266CC" },
+  "#7209B7": { dark: "#7209B7", light: "#440077" },
+  "#B5179E": { dark: "#B5179E", light: "#880077" },
+  "#F72585": { dark: "#F72585", light: "#CC0055" },
+  "#F9C74F": { dark: "#F9C74F", light: "#BB9900" },
+  "#90BE6D": { dark: "#90BE6D", light: "#558833" },
+  "#43AA8B": { dark: "#43AA8B", light: "#227755" },
+  "#577590": { dark: "#577590", light: "#335577" },
+  "#BC6C25": { dark: "#BC6C25", light: "#884411" },
+  "#DDA15E": { dark: "#DDA15E", light: "#AA7733" },
+  "#606C38": { dark: "#606C38", light: "#334411" },
+};
+
+export const getThemeColor = (baseColor: string, themeMode: 'dark' | 'light'): string => {
+  const mapped = COLOR_MAP[baseColor];
+  if (mapped) {
+    return mapped[themeMode];
+  }
+  return baseColor;
+};

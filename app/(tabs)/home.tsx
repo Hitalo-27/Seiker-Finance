@@ -35,7 +35,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useMonth } from "@/context/MonthContext";
 import { useTheme } from "@/context/ThemeContext";
-import { ICON_LIST, PRESET_COLORS } from "../../constants/icons";
+import { ICON_LIST, PRESET_COLORS, getThemeColor } from "../../constants/icons";
 import { useAlert } from "@/context/AlertContext";
 
 const formatCurrency = (value: number) => {
@@ -376,6 +376,7 @@ export default function Home() {
                       cat={cat}
                       styles={styles}
                       theme={theme}
+                      themeMode={themeMode}
                       onPress={() => openEditModal(cat, false)}
                     />
                   ))}
@@ -591,7 +592,7 @@ export default function Home() {
                   style={[
                     styles.colorCircle,
                     {
-                      backgroundColor: item,
+                      backgroundColor: getThemeColor(item, themeMode),
                       borderWidth: editItem?.color === item ? 3 : 0,
                       borderColor: theme.text,
                     },
@@ -743,9 +744,9 @@ const createStyles = (theme: any) =>
     repeatTabTextActive: { color: theme.background },
   });
 
-function CategoryCard({ cat, styles, theme, onPress }: any) {
+function CategoryCard({ cat, styles, theme, themeMode, onPress }: any) {
   const IconComp = ICON_LIST.find((i) => i.name === cat.icon)?.lib || Target;
-  const color = cat.color || theme.text;
+  const color = getThemeColor(cat.color || theme.text, themeMode);
 
   const isInvestment = cat.categoryType === "investment";
   const isIncome = cat.categoryType === "income";
