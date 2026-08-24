@@ -138,8 +138,34 @@ export default function Home() {
     const unsubscribe = onSnapshot(budgetRef, async (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
+        let currentCategories = data.categories || [];
+        
+        try {
+          const userSnap = await getDoc(doc(db, "users", user.uid));
+          const userData = userSnap.data();
+          const templateCategories = userData?.categoryTemplate || [];
+          
+          let hasMissing = false;
+          const updatedCategories = [...currentCategories];
+          
+          templateCategories.forEach((templateItem: any) => {
+            const exists = currentCategories.some((c: any) => c.id === templateItem.id || c.name === templateItem.name);
+            if (!exists) {
+              updatedCategories.push({ ...templateItem, value: 0 });
+              hasMissing = true;
+            }
+          });
+          
+          if (hasMissing) {
+            await setDoc(budgetRef, { categories: updatedCategories }, { merge: true });
+            currentCategories = updatedCategories;
+          }
+        } catch (error) {
+          console.error("Erro ao sincronizar template:", error);
+        }
+
         setBudget({
-          categories: data.categories || [],
+          categories: currentCategories,
         });
         setLoading(false);
       } else {
