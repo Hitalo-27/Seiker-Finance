@@ -149,9 +149,19 @@ export default function Home() {
           const updatedCategories = [...currentCategories];
           
           templateCategories.forEach((templateItem: any) => {
-            const exists = currentCategories.some((c: any) => c.id === templateItem.id || c.name === templateItem.name);
+            const exists = currentCategories.some((c: any) => {
+              if (c.id === templateItem.id) return true;
+              const name1 = (c.name || "").trim().toLowerCase();
+              const name2 = (templateItem.name || "").trim().toLowerCase();
+              return name1 === name2 && name1 !== "";
+            });
+
             if (!exists) {
-              updatedCategories.push({ ...templateItem, value: 0 });
+              updatedCategories.push({ 
+                ...templateItem, 
+                name: (templateItem.name || "").trim(),
+                value: 0 
+              });
               hasMissing = true;
             }
           });
