@@ -43,6 +43,8 @@ import { useTheme } from "@/context/ThemeContext";
 import { useFocusEffect } from "expo-router";
 import { getThemeColor } from "../../constants/icons";
 
+import { useBudget } from "../../hooks/useBudget";
+
 const formatCurrency = (value: number) => {
   return value.toLocaleString("pt-BR", {
     style: "currency",
@@ -56,7 +58,6 @@ export default function Explore() {
   const theme = Colors[themeMode as keyof typeof Colors];
 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [budget, setBudget] = useState<any>(null);
   const [yearlyExpenses, setYearlyExpenses] = useState<any[]>([]);
   const [yearlyInvestments, setYearlyInvestments] = useState<any[]>([]);
 
@@ -66,7 +67,6 @@ export default function Explore() {
     investment: 0,
   });
 
-  const [loadingMonth, setLoadingMonth] = useState(true);
   const [loadingYear, setLoadingYear] = useState(false);
 
   const offset = useSharedValue(0);
@@ -102,23 +102,7 @@ export default function Explore() {
     opacity: opacity.value,
   }));
 
-  useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) return;
-    setLoadingMonth(true);
-    const budgetRef = doc(
-      db,
-      "users",
-      user.uid,
-      "monthlyBudgets",
-      selectedMonthId,
-    );
-    return onSnapshot(budgetRef, (docSnap) => {
-      if (docSnap.exists()) setBudget(docSnap.data());
-      else setBudget(null);
-      setLoadingMonth(false);
-    });
-  }, [selectedMonthId]);
+  const { budget, loading: loadingMonth } = useBudget(selectedMonthId);
 
   const fetchYearlyData = async () => {
     const user = auth.currentUser;
