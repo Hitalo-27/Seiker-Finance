@@ -44,6 +44,18 @@ import { useFocusEffect } from "expo-router";
 import { getThemeColor } from "../../constants/icons";
 
 import { useBudget } from "../../hooks/useBudget";
+import { Category } from "../../types/budget";
+
+export interface ChartData {
+  value: number;
+  label?: string;
+  frontColor?: string;
+  showGradient?: boolean;
+  gradientColor?: string;
+  topLabelComponent?: () => React.ReactNode;
+  color?: string;
+  text?: string;
+}
 
 const formatCurrency = (value: number) => {
   return value.toLocaleString("pt-BR", {
@@ -58,8 +70,8 @@ export default function Explore() {
   const theme = Colors[themeMode as keyof typeof Colors];
 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [yearlyExpenses, setYearlyExpenses] = useState<any[]>([]);
-  const [yearlyInvestments, setYearlyInvestments] = useState<any[]>([]);
+  const [yearlyExpenses, setYearlyExpenses] = useState<ChartData[]>([]);
+  const [yearlyInvestments, setYearlyInvestments] = useState<ChartData[]>([]);
 
   const [totalsAnuais, setTotalsAnuais] = useState({
     income: 0,
@@ -133,8 +145,8 @@ export default function Explore() {
       "Dez",
     ];
 
-    const expenses: any[] = [];
-    const investments: any[] = [];
+    const expenses: ChartData[] = [];
+    const investments: ChartData[] = [];
 
     let sumIncome = 0;
     let sumExpense = 0;
@@ -148,16 +160,16 @@ export default function Explore() {
 
       const monthExp =
         data?.categories
-          ?.filter((c: any) => c.categoryType === "expense")
-          .reduce((acc: number, c: any) => acc + (c.value || 0), 0) || 0;
+          ?.filter((c: Category) => c.categoryType === "expense")
+          .reduce((acc: number, c: Category) => acc + (c.value || 0), 0) || 0;
       const monthInv =
         data?.categories
-          ?.filter((c: any) => c.categoryType === "investment")
-          .reduce((acc: number, c: any) => acc + (c.value || 0), 0) || 0;
+          ?.filter((c: Category) => c.categoryType === "investment")
+          .reduce((acc: number, c: Category) => acc + (c.value || 0), 0) || 0;
       const monthInc =
         data?.categories
-          ?.filter((c: any) => c.categoryType === "income")
-          .reduce((acc: number, c: any) => acc + (c.value || 0), 0) || 0;
+          ?.filter((c: Category) => c.categoryType === "income")
+          .reduce((acc: number, c: Category) => acc + (c.value || 0), 0) || 0;
 
       sumIncome += monthInc;
       sumExpense += monthExp;
@@ -258,7 +270,7 @@ export default function Explore() {
         };
 
       const totals = budget.categories.reduce(
-        (acc: any, cat: any) => {
+        (acc: { totalIncome: number; totalExpenses: number; totalInvestments: number }, cat: Category) => {
           if (cat.categoryType === "income") acc.totalIncome += cat.value || 0;
           else if (cat.categoryType === "investment")
             acc.totalInvestments += cat.value || 0;
@@ -269,8 +281,8 @@ export default function Explore() {
       );
 
       const formattedPie = budget.categories
-        .filter((c: any) => c.categoryType !== "income" && (c.value || 0) > 0)
-        .map((cat: any) => {
+        .filter((c: Category) => c.categoryType !== "income" && (c.value || 0) > 0)
+        .map((cat: Category) => {
           const resolvedColor = getThemeColor(cat.color || theme.primary, themeMode);
           return {
             value: cat.value || 0,
@@ -366,7 +378,7 @@ export default function Explore() {
                       )}
                     />
                     <View style={styles.legendGrid}>
-                      {pieData.map((item: any, i: number) => (
+                      {pieData.map((item: ChartData, i: number) => (
                         <View key={i} style={styles.legendItem}>
                           <View
                             style={[
@@ -523,7 +535,7 @@ export default function Explore() {
   );
 }
 
-const createStyles = (theme: any) =>
+const createStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.background },
     scroll: { padding: 20, paddingBottom: 50 },

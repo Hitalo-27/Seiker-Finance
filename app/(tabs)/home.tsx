@@ -186,7 +186,7 @@ export default function Home() {
   );
 }
 
-const createStyles = (theme: any) =>
+const createStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.background },
     scroll: { padding: 20, paddingBottom: 100 },

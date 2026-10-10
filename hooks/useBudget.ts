@@ -30,8 +30,8 @@ export function useBudget(selectedMonthId: string) {
           let hasMissing = false;
           const updatedCategories = [...currentCategories];
           
-          templateCategories.forEach((templateItem: any) => {
-            const exists = currentCategories.some((c: any) => {
+          templateCategories.forEach((templateItem: Category) => {
+            const exists = currentCategories.some((c: Category) => {
               if (c.id === templateItem.id) return true;
               const name1 = (c.name || "").trim().toLowerCase();
               const name2 = (templateItem.name || "").trim().toLowerCase();
@@ -122,7 +122,7 @@ export function useBudget(selectedMonthId: string) {
         const data = docSnap.exists() ? docSnap.data() : { categories: [] };
         let cats = [...(data.categories || [])];
         const existsIndex = cats.findIndex(
-          (c: any) =>
+          (c: Category) =>
             c.id === categoryData.id ||
             (c.groupId === groupId &&
               c.installmentLabel === categoryData.installmentLabel)
@@ -146,7 +146,7 @@ export function useBudget(selectedMonthId: string) {
           if (docSnap.exists()) {
             const data = docSnap.data();
             const updatedCats = data.categories.filter(
-              (c: any) => c.groupId !== groupId
+              (c: Category) => c.groupId !== groupId
             );
             await setDoc(targetRef, { categories: updatedCats }, { merge: true });
           }
