@@ -15,6 +15,15 @@ import { X, Trash2 } from 'lucide-react-native';
 import { Category, CategoryType, RepeatMode } from '../types/budget';
 import { ICON_LIST, PRESET_COLORS, getThemeColor } from '../constants/icons';
 
+const formatCurrency = (text: string) => {
+  const digits = text.replace(/\D/g, "");
+  if (!digits) return "";
+  const numericValue = parseInt(digits, 10) / 100;
+  const parts = numericValue.toFixed(2).split(".");
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return parts.join(",");
+};
+
 interface Props {
   visible: boolean;
   onClose: () => void;
@@ -63,7 +72,7 @@ export function TransactionModal({
       setCategoryType(savedType);
       setRepeatMode(savedMode);
       setInstallments(isNew ? "1" : String(savedMonths));
-      setInputValue(totalValue > 0 ? String(totalValue.toFixed(2)).replace(".", ",") : "");
+      setInputValue(totalValue > 0 ? formatCurrency(String(totalValue.toFixed(2))) : "");
     }
   }, [visible, initialItem, isNew]);
 
@@ -161,15 +170,20 @@ export function TransactionModal({
               <Text style={styles.label}>Valor Total (R$)</Text>
               <TextInput
                 style={styles.input}
-                keyboardType="decimal-pad"
+                keyboardType="numeric"
                 placeholder="0,00"
                 placeholderTextColor={theme.secondary}
                 value={inputValue}
                 onChangeText={(t) => {
-                  setInputValue(t);
+                  const formatted = formatCurrency(t);
+                  setInputValue(formatted);
+                  
+                  const digits = formatted.replace(/\D/g, "");
+                  const numericValue = digits ? parseInt(digits, 10) / 100 : 0;
+                  
                   setEditItem({
                     ...editItem,
-                    value: parseFloat(t.replace(",", ".")) || 0,
+                    value: numericValue,
                   });
                 }}
               />
