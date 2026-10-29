@@ -11,6 +11,7 @@ import {
   ScrollView,
   Image,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   User,
   ChevronLeft,
@@ -24,7 +25,8 @@ import {
   Wallet,
   TrendingDown,
   TrendingUp,
-  CircleUser,
+  Save,
+  Sparkles,
 } from "lucide-react-native";
 import { auth, db } from "../FirebaseConfig";
 import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
@@ -32,7 +34,8 @@ import { Colors } from "../constants/theme";
 import { useTheme } from "@/context/ThemeContext";
 import { useMonth } from "@/context/MonthContext";
 import { useRouter, usePathname } from "expo-router";
-import { ICON_LIST, PRESET_COLORS, getThemeColor } from "../constants/icons";
+import { ICON_LIST, getThemeColor } from "../constants/icons";
+import { ColorWheelPicker } from "./ColorWheelPicker";
 import { useAlert } from "@/context/AlertContext";
 
 const MONTHS = [
@@ -54,6 +57,7 @@ export default function GlobalHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const { theme: themeMode, toggleTheme } = useTheme();
+  const isDark = themeMode === "dark";
   const theme = Colors[themeMode as keyof typeof Colors];
   const { selectedMonthId, setSelectedMonthId } = useMonth();
 
@@ -155,7 +159,13 @@ export default function GlobalHeader() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={{ width: 28 }} />
+      <TouchableOpacity onPress={toggleTheme}>
+        {themeMode === "dark" ? (
+          <Sun color={theme.primary} size={26} />
+        ) : (
+          <Moon color={theme.primary} size={26} />
+        )}
+      </TouchableOpacity>
 
       <View style={styles.monthSelector}>
         <TouchableOpacity onPress={() => changeMonth(-1)}>
@@ -254,28 +264,6 @@ export default function GlobalHeader() {
               { backgroundColor: theme.card, borderColor: theme.border },
             ]}
           >
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuVisible(false);
-                router.push("/profile");
-              }}
-            >
-              <CircleUser color={theme.primary} size={18} />
-              <Text style={{ color: theme.text }}>Meu Perfil</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuItem} onPress={toggleTheme}>
-              {themeMode === "dark" ? (
-                <Sun color={theme.primary} size={18} />
-              ) : (
-                <Moon color={theme.primary} size={18} />
-              )}
-              <Text style={{ color: theme.text }}>
-                Tema {themeMode === "dark" ? "Claro" : "Escuro"}
-              </Text>
-            </TouchableOpacity>
-
             <TouchableOpacity style={styles.menuItem} onPress={loadTemplate}>
               <Target color={theme.primary} size={18} />
               <Text style={{ color: theme.text }}>Meu Template</Text>
@@ -297,17 +285,67 @@ export default function GlobalHeader() {
           <View
             style={[
               styles.modalContent,
-              { backgroundColor: theme.card, borderColor: theme.primary },
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.primary + (isDark ? "66" : "44"),
+              },
             ]}
           >
-            <View style={styles.modalHeader}>
-              <Text
-                style={{ color: theme.text, fontSize: 18, fontWeight: "bold" }}
+            <View
+              style={[
+                styles.modalHeader,
+                { borderBottomColor: theme.border },
+              ]}
+            >
+              <View style={styles.modalHeaderLeft}>
+                <View
+                  style={[
+                    styles.modalHeaderBadge,
+                    {
+                      backgroundColor: theme.primary + (isDark ? "22" : "18"),
+                      borderColor: theme.primary + "44",
+                    },
+                  ]}
+                >
+                  <Target size={20} color={theme.primary} />
+                </View>
+                <View>
+                  <View style={styles.modalTitleRow}>
+                    <Text style={[styles.modalTitle, { color: theme.text }]}>
+                      Meu Template
+                    </Text>
+                    <View
+                      style={[
+                        styles.countBadge,
+                        { backgroundColor: theme.primary + "20" },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.countBadgeText, { color: theme.primary }]}
+                      >
+                        {templateCategories.length}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text
+                    style={[styles.modalSubtitle, { color: theme.secondary }]}
+                  >
+                    Categorias base para iniciar seus meses
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setTemplateModal(false)}
+                style={[
+                  styles.closeBtn,
+                  {
+                    backgroundColor: theme.background,
+                    borderColor: theme.border,
+                  },
+                ]}
               >
-                Meu Template
-              </Text>
-              <TouchableOpacity onPress={() => setTemplateModal(false)}>
-                <X color={theme.text} />
+                <X color={theme.text} size={18} />
               </TouchableOpacity>
             </View>
 
@@ -315,196 +353,326 @@ export default function GlobalHeader() {
               ref={flatListRef}
               data={templateCategories}
               showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.templateListContent}
               keyExtractor={(_, index) => index.toString()}
-              renderItem={({ item, index }) => (
-                <View
-                  style={[
-                    styles.templateCard,
-                    { borderColor: getThemeColor(item.color || theme.border, themeMode) },
-                  ]}
-                >
-                  <View style={styles.templateHeaderRow}>
-                    <TextInput
-                      style={[styles.templateInput, { color: theme.text }]}
-                      value={item.name}
-                      placeholder="Nome"
-                      placeholderTextColor={theme.secondary}
-                      onChangeText={(text) => {
-                        const newCats = [...templateCategories];
-                        newCats[index].name = text;
-                        setTemplateCategories(newCats);
-                      }}
-                    />
-                    <TouchableOpacity
-                      onPress={() =>
-                        setTemplateCategories(
-                          templateCategories.filter((_, i) => i !== index),
-                        )
-                      }
-                    >
-                      <Trash2 color={theme.error} size={20} />
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.typeSelector}>
-                    {[
-                      {
-                        id: "income",
-                        label: "Ganhos",
-                        icon: Wallet,
-                        color: theme.success,
-                      },
-                      {
-                        id: "expense",
-                        label: "Despesa",
-                        icon: TrendingDown,
-                        color: theme.error,
-                      },
-                      {
-                        id: "investment",
-                        label: "Invest.",
-                        icon: TrendingUp,
-                        color: theme.warning,
-                      },
-                    ].map((type) => {
-                      const isSelected =
-                        item.categoryType === type.id ||
-                        (!item.categoryType && type.id === "expense");
-                      const activeColor = isSelected
-                        ? type.color
-                        : theme.primary;
-                      return (
-                        <TouchableOpacity
-                          key={type.id}
-                          style={[
-                            styles.typeTab,
-                            isSelected && { backgroundColor: activeColor },
-                          ]}
-                          onPress={() => {
-                            const newCats = [...templateCategories];
-                            newCats[index].categoryType = type.id;
-                            setTemplateCategories(newCats);
-                          }}
-                        >
-                          <type.icon
-                            size={12}
-                            color={
-                              isSelected ? theme.background : theme.secondary
-                            }
-                          />
-                          <Text
-                            style={[
-                              styles.typeTabText,
-                              {
-                                color: isSelected
-                                  ? theme.background
-                                  : theme.secondary,
-                              },
-                            ]}
-                          >
-                            {type.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.horizontalSelector}
+              ListEmptyComponent={
+                <View style={styles.emptyTemplateBox}>
+                  <View
+                    style={[
+                      styles.emptyTemplateIcon,
+                      { backgroundColor: theme.primary + "18" },
+                    ]}
                   >
-                    {ICON_LIST.map((icon) => (
-                      <TouchableOpacity
-                        key={icon.name}
-                        style={[
-                          styles.iconOption,
-                          item.icon === icon.name && {
-                            backgroundColor: theme.primary + "33",
-                          },
-                        ]}
-                        onPress={() => {
-                          const newCats = [...templateCategories];
-                          newCats[index].icon = icon.name;
-                          setTemplateCategories(newCats);
-                        }}
-                      >
-                        <icon.lib
-                          color={
-                            item.icon === icon.name
-                              ? theme.primary
-                              : theme.secondary
-                          }
-                          size={20}
-                        />
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.horizontalSelector}
+                    <Sparkles size={24} color={theme.primary} />
+                  </View>
+                  <Text
+                    style={[styles.emptyTemplateTitle, { color: theme.text }]}
                   >
-                    {PRESET_COLORS.map((color) => (
-                      <TouchableOpacity
-                        key={color}
-                        style={[
-                          styles.colorOption,
-                          { backgroundColor: getThemeColor(color, themeMode) },
-                          item.color === color && {
-                            borderWidth: 2,
-                            borderColor: theme.text,
-                          },
-                        ]}
-                        onPress={() => {
-                          const newCats = [...templateCategories];
-                          newCats[index].color = color;
-                          setTemplateCategories(newCats);
-                        }}
-                      />
-                    ))}
-                  </ScrollView>
+                    Nenhuma categoria no template
+                  </Text>
+                  <Text
+                    style={[
+                      styles.emptyTemplateSub,
+                      { color: theme.secondary },
+                    ]}
+                  >
+                    Toque no botão abaixo para adicionar categorias que serão criadas automaticamente a cada novo mês.
+                  </Text>
                 </View>
-              )}
-            />
+              }
+              renderItem={({ item, index }) => {
+                const resolvedColor = getThemeColor(
+                  item.color || theme.primary,
+                  themeMode as "dark" | "light",
+                );
+                const SelectedIconComp =
+                  ICON_LIST.find((i) => i.name === item.icon)?.lib || Target;
 
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => {
-                setTemplateCategories([
-                  ...templateCategories,
-                  {
-                    id: Date.now().toString(),
-                    name: "Novo Item",
-                    value: 0,
-                    color: theme.primary,
-                    icon: "Target",
-                    categoryType: "expense",
-                  },
-                ]);
-                setTimeout(
-                  () => flatListRef.current?.scrollToEnd({ animated: true }),
-                  100,
+                const cardColors: [string, string] = isDark
+                  ? [resolvedColor + "18", theme.background]
+                  : [resolvedColor + "12", theme.background];
+
+                return (
+                  <View
+                    style={[
+                      styles.templateCardWrapper,
+                      {
+                        borderColor: resolvedColor + (isDark ? "55" : "44"),
+                      },
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={cardColors}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.templateCard}
+                    >
+                      <View
+                        style={[
+                          styles.templateAccentBar,
+                          { backgroundColor: resolvedColor },
+                        ]}
+                      />
+
+                      <View style={styles.templateHeaderRow}>
+                        <View
+                          style={[
+                            styles.previewIconBadge,
+                            {
+                              backgroundColor:
+                                resolvedColor + (isDark ? "28" : "20"),
+                              borderColor: resolvedColor + "55",
+                            },
+                          ]}
+                        >
+                          <SelectedIconComp color={resolvedColor} size={18} />
+                        </View>
+
+                        <View
+                          style={[
+                            styles.templateInputContainer,
+                            {
+                              backgroundColor: theme.card,
+                              borderColor: theme.border,
+                            },
+                          ]}
+                        >
+                          <TextInput
+                            style={[styles.templateInput, { color: theme.text }]}
+                            value={item.name}
+                            placeholder="Nome da categoria..."
+                            placeholderTextColor={theme.secondary}
+                            onChangeText={(text) => {
+                              const newCats = [...templateCategories];
+                              newCats[index].name = text;
+                              setTemplateCategories(newCats);
+                            }}
+                          />
+                        </View>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.deleteItemBtn,
+                            {
+                              backgroundColor: theme.error + "18",
+                              borderColor: theme.error + "38",
+                            },
+                          ]}
+                          onPress={() =>
+                            setTemplateCategories(
+                              templateCategories.filter((_, i) => i !== index),
+                            )
+                          }
+                        >
+                          <Trash2 color={theme.error} size={17} />
+                        </TouchableOpacity>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.typeSelector,
+                          {
+                            backgroundColor: theme.card,
+                            borderColor: theme.border,
+                          },
+                        ]}
+                      >
+                        {[
+                          {
+                            id: "income",
+                            label: "Ganhos",
+                            icon: Wallet,
+                            color: theme.success,
+                          },
+                          {
+                            id: "expense",
+                            label: "Despesa",
+                            icon: TrendingDown,
+                            color: theme.error,
+                          },
+                          {
+                            id: "investment",
+                            label: "Invest.",
+                            icon: TrendingUp,
+                            color: theme.warning,
+                          },
+                        ].map((type) => {
+                          const isSelected =
+                            item.categoryType === type.id ||
+                            (!item.categoryType && type.id === "expense");
+                          return (
+                            <TouchableOpacity
+                              key={type.id}
+                              style={[
+                                styles.typeTab,
+                                isSelected && { backgroundColor: type.color },
+                              ]}
+                              onPress={() => {
+                                const newCats = [...templateCategories];
+                                newCats[index].categoryType = type.id;
+                                setTemplateCategories(newCats);
+                              }}
+                            >
+                              <type.icon
+                                size={13}
+                                color={
+                                  isSelected
+                                    ? theme.background
+                                    : theme.secondary
+                                }
+                              />
+                              <Text
+                                style={[
+                                  styles.typeTabText,
+                                  {
+                                    color: isSelected
+                                      ? theme.background
+                                      : theme.secondary,
+                                  },
+                                ]}
+                              >
+                                {type.label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+
+                      <Text
+                        style={[
+                          styles.fieldMiniLabel,
+                          { color: theme.secondary },
+                        ]}
+                      >
+                        ÍCONE DA CATEGORIA
+                      </Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.horizontalSelector}
+                      >
+                        {ICON_LIST.map((icon) => {
+                          const isSelectedIcon = item.icon === icon.name;
+                          return (
+                            <TouchableOpacity
+                              key={icon.name}
+                              style={[
+                                styles.iconOption,
+                                {
+                                  backgroundColor: theme.card,
+                                  borderColor: theme.border,
+                                },
+                                isSelectedIcon && {
+                                  backgroundColor: resolvedColor + "28",
+                                  borderColor: resolvedColor,
+                                },
+                              ]}
+                              onPress={() => {
+                                const newCats = [...templateCategories];
+                                newCats[index].icon = icon.name;
+                                setTemplateCategories(newCats);
+                              }}
+                            >
+                              <icon.lib
+                                color={
+                                  isSelectedIcon
+                                    ? resolvedColor
+                                    : theme.secondary
+                                }
+                                size={19}
+                              />
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+
+                      <ColorWheelPicker
+                        color={item.color || theme.primary}
+                        onColorChange={(hex) => {
+                          const newCats = [...templateCategories];
+                          newCats[index] = { ...newCats[index], color: hex };
+                          setTemplateCategories(newCats);
+                        }}
+                        theme={theme}
+                      />
+                    </LinearGradient>
+                  </View>
                 );
               }}
-            >
-              <Plus color={theme.primary} />
-            </TouchableOpacity>
+            />
 
-            <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: theme.primary }]}
-              onPress={saveTemplate}
-              disabled={isSaving}
-            >
-              {isSaving ? (
-                <ActivityIndicator color={theme.background} />
-              ) : (
-                <Text style={{ fontWeight: "bold", color: theme.background }}>
-                  SALVAR TEMPLATE
+            <View style={styles.modalFooterActions}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={[
+                  styles.addButton,
+                  {
+                    borderColor: theme.primary + "88",
+                    backgroundColor: isDark
+                      ? "rgba(0, 245, 255, 0.05)"
+                      : "rgba(0, 172, 193, 0.05)",
+                  },
+                ]}
+                onPress={() => {
+                  setTemplateCategories([
+                    ...templateCategories,
+                    {
+                      id: Date.now().toString(),
+                      name: "",
+                      value: 0,
+                      color: theme.primary,
+                      icon: "Target",
+                      categoryType: "expense",
+                    },
+                  ]);
+                  setTimeout(
+                    () => flatListRef.current?.scrollToEnd({ animated: true }),
+                    100,
+                  );
+                }}
+              >
+                <View
+                  style={[
+                    styles.addIconCircle,
+                    { backgroundColor: theme.primary + "22" },
+                  ]}
+                >
+                  <Plus size={16} color={theme.primary} />
+                </View>
+                <Text style={[styles.addButtonText, { color: theme.primary }]}>
+                  Adicionar Categoria
                 </Text>
-              )}
-            </TouchableOpacity>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[
+                  styles.saveButton,
+                  {
+                    backgroundColor: theme.primary,
+                    shadowColor: theme.primary,
+                  },
+                ]}
+                onPress={saveTemplate}
+                disabled={isSaving}
+              >
+                {isSaving ? (
+                  <ActivityIndicator color={theme.background} />
+                ) : (
+                  <>
+                    <Save size={18} color={theme.background} />
+                    <Text
+                      style={[
+                        styles.saveButtonText,
+                        { color: theme.background },
+                      ]}
+                    >
+                      SALVAR TEMPLATE
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -532,7 +700,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.8)",
+    backgroundColor: "rgba(0,0,0,0.82)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -585,70 +753,229 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.05)",
   },
   modalContent: {
-    width: "95%",
+    width: "94%",
     height: "90%",
-    borderRadius: 25,
-    padding: 20,
-    borderWidth: 1,
+    borderRadius: 28,
+    padding: 18,
+    borderWidth: 1.5,
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 20,
-  },
-  addButton: {
-    padding: 15,
     alignItems: "center",
+    paddingBottom: 14,
+    marginBottom: 14,
+    borderBottomWidth: 1,
+  },
+  modalHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  modalHeaderBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
     borderWidth: 1,
-    borderStyle: "dashed",
-    borderColor: "#555",
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  saveButton: {
-    padding: 18,
-    borderRadius: 12,
     alignItems: "center",
-    marginTop: 20,
+    justifyContent: "center",
+  },
+  modalTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: -0.2,
+  },
+  countBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  countBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  modalSubtitle: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  templateListContent: {
+    paddingBottom: 8,
+  },
+  emptyTemplateBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+  },
+  emptyTemplateIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  emptyTemplateTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  emptyTemplateSub: {
+    fontSize: 12,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  templateCardWrapper: {
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 14,
+    overflow: "hidden",
   },
   templateCard: {
-    backgroundColor: "rgba(255,255,255,0.03)",
-    borderRadius: 15,
     padding: 15,
-    marginBottom: 15,
-    borderWidth: 1,
+    position: "relative",
+    overflow: "hidden",
+  },
+  templateAccentBar: {
+    position: "absolute",
+    left: 0,
+    top: 16,
+    bottom: 16,
+    width: 3.5,
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
   },
   templateHeaderRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 10,
     marginBottom: 12,
   },
-  templateInput: { fontSize: 16, fontWeight: "bold", flex: 1 },
-  horizontalSelector: { marginTop: 10 },
-  iconOption: {
-    padding: 8,
-    borderRadius: 8,
-    marginRight: 8,
+  previewIconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  colorOption: { width: 24, height: 24, borderRadius: 12, marginRight: 10 },
+  templateInputContainer: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    height: 40,
+    justifyContent: "center",
+  },
+  templateInput: {
+    fontSize: 14,
+    fontWeight: "700",
+    paddingVertical: 0,
+  },
+  deleteItemBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   typeSelector: {
     flexDirection: "row",
-    backgroundColor: "rgba(0,0,0,0.2)",
-    borderRadius: 8,
-    padding: 2,
-    gap: 2,
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+    borderWidth: 1,
   },
   typeTab: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
-    paddingVertical: 6,
-    borderRadius: 6,
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 9,
   },
-  typeTabText: { fontSize: 10, fontWeight: "bold" },
+  typeTabText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  fieldMiniLabel: {
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.9,
+    marginTop: 12,
+    marginBottom: 6,
+    marginLeft: 2,
+  },
+  horizontalSelector: {
+    marginBottom: 2,
+  },
+  iconOption: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    marginRight: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalFooterActions: {
+    paddingTop: 10,
+    gap: 10,
+  },
+  addButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderRadius: 15,
+  },
+  addIconCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addButtonText: {
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  saveButton: {
+    paddingVertical: 15,
+    borderRadius: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    elevation: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+  },
+  saveButtonText: {
+    fontWeight: "800",
+    fontSize: 14,
+    letterSpacing: 0.6,
+  },
 });

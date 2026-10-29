@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   ChevronLeft,
   ChevronRight,
@@ -17,11 +18,11 @@ import {
   TrendingUp,
   TrendingDown,
   LayoutGrid,
+  Wallet,
+  Sparkles,
 } from "lucide-react-native";
 import { auth, db } from "../../FirebaseConfig";
 import {
-  doc,
-  onSnapshot,
   collection,
   query,
   where,
@@ -67,6 +68,7 @@ const formatCurrency = (value: number) => {
 export default function Explore() {
   const { selectedMonthId, setSelectedMonthId } = useMonth();
   const { theme: themeMode } = useTheme();
+  const isDark = themeMode === "dark";
   const theme = Colors[themeMode as keyof typeof Colors];
 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -84,7 +86,15 @@ export default function Explore() {
   const offset = useSharedValue(0);
   const opacity = useSharedValue(1);
 
-  const styles = useMemo(() => createStyles(theme), [theme]);
+  const styles = useMemo(() => createStyles(theme, isDark), [theme, isDark]);
+
+  const cardGradient: [string, string] = isDark
+    ? ["#1E262D", theme.card]
+    : ["#FFFFFF", "#F8FAFC"];
+
+  const primaryTintGradient: [string, string, string] = isDark
+    ? ["#0E2A32", "#182228", theme.card]
+    : ["#E4F8FB", "#F5FCFD", theme.card];
 
   const changeMonth = (direction: number) => {
     opacity.value = 0;
@@ -283,7 +293,10 @@ export default function Explore() {
       const formattedPie = budget.categories
         .filter((c: Category) => c.categoryType !== "income" && (c.value || 0) > 0)
         .map((cat: Category) => {
-          const resolvedColor = getThemeColor(cat.color || theme.primary, themeMode);
+          const resolvedColor = getThemeColor(
+            cat.color || theme.primary,
+            themeMode as "dark" | "light"
+          );
           return {
             value: cat.value || 0,
             color: resolvedColor,
@@ -293,7 +306,7 @@ export default function Explore() {
         });
 
       return { ...totals, pieData: formattedPie };
-    }, [budget, theme.primary]);
+    }, [budget, theme.primary, themeMode]);
 
   const barData = [
     {
@@ -334,6 +347,11 @@ export default function Explore() {
     },
   ];
 
+  const totalOutflow = totalExpenses + totalInvestments;
+  const incomeUsagePct =
+    totalIncome > 0 ? ((totalOutflow / totalIncome) * 100).toFixed(0) : "0";
+  const isOverBudget = Number(incomeUsagePct) > 100;
+
   return (
     <SafeAreaView style={styles.container} edges={["left", "right", "bottom"]}>
       <ScrollView
@@ -342,255 +360,754 @@ export default function Explore() {
       >
         <GestureDetector gesture={swipeGesture}>
           <Animated.View style={[{ flex: 1 }, animatedStyle]}>
-            <View style={styles.chartCard}>
-              <View style={styles.chartHeader}>
-                <PieIcon size={20} color={theme.primary} />
-                <Text style={styles.chartLabel}>
-                  Distribuição de Gastos/Invest.
+            <View
+              style={[
+                styles.cardWrapper,
+                {
+                  borderColor: theme.primary + (isDark ? "44" : "33"),
+                  shadowColor: theme.primary,
+                },
+              ]}
+            >
+              <LinearGradient
+                colors={primaryTintGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.cardInner}
+              >
+                <View
+                  style={[
+                    styles.decorativeCircle,
+                    { backgroundColor: theme.primary + (isDark ? "12" : "15") },
+                  ]}
+                />
+
+                <View style={styles.chartHeader}>
+                  <View
+                    style={[
+                      styles.iconBadge,
+                      {
+                        backgroundColor: theme.primary + (isDark ? "24" : "18"),
+                        borderColor: theme.primary + "44",
+                      },
+                    ]}
+                  >
+                    <PieIcon size={18} color={theme.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.chartTitle}>
+                      Distribuição de Gastos e Invest.
+                    </Text>
+                    <Text style={styles.chartSubtitle}>
+                      Proporção por categoria no mês selecionado
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.fixedContentArea}>
+                  {loadingMonth ? (
+                    <ActivityIndicator color={theme.primary} size="large" />
+                  ) : pieData.length === 0 ? (
+                    <View style={styles.emptyState}>
+                      <View
+                        style={[
+                          styles.emptyIconCircle,
+                          { backgroundColor: theme.primary + "15" },
+                        ]}
+                      >
+                        <Sparkles size={24} color={theme.primary} />
+                      </View>
+                      <Text style={styles.emptyTitle}>
+                        Sem saídas registradas
+                      </Text>
+                      <Text style={styles.emptySubtitle}>
+                        Adicione gastos ou investimentos na tela inicial para visualizar a distribuição.
+                      </Text>
+                    </View>
+                  ) : (
+                    <>
+                      <View style={styles.pieWrapper}>
+                        <PieChart
+                          data={pieData}
+                          donut
+                          radius={105}
+                          innerRadius={74}
+                          innerCircleColor={theme.card}
+                          showGradient
+                          centerLabelComponent={() => (
+                            <View style={styles.centerLabelWrap}>
+                              <Text
+                                style={[
+                                  styles.centerValue,
+                                  {
+                                    color: isOverBudget
+                                      ? theme.error
+                                      : theme.primary,
+                                  },
+                                ]}
+                              >
+                                {incomeUsagePct}%
+                              </Text>
+                              <Text style={styles.centerLabel}>
+                                USO DA RENDA
+                              </Text>
+                            </View>
+                          )}
+                        />
+                      </View>
+
+                      <View style={styles.legendGrid}>
+                        {pieData.map((item: ChartData, i: number) => {
+                          const pct =
+                            totalOutflow > 0
+                              ? Math.round((item.value / totalOutflow) * 100)
+                              : 0;
+                          return (
+                            <View
+                              key={i}
+                              style={[
+                                styles.legendChip,
+                                {
+                                  backgroundColor: isDark
+                                    ? "rgba(255,255,255,0.04)"
+                                    : "rgba(0,0,0,0.03)",
+                                  borderColor: (item.color || theme.primary) + "44",
+                                },
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  styles.dot,
+                                  { backgroundColor: item.color },
+                                ]}
+                              />
+                              <Text style={styles.legendText} numberOfLines={1}>
+                                {item.text}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.legendPct,
+                                  { color: item.color || theme.primary },
+                                ]}
+                              >
+                                {pct}%
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </>
+                  )}
+                </View>
+              </LinearGradient>
+            </View>
+
+            <View style={styles.cardWrapper}>
+              <LinearGradient
+                colors={cardGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.cardInner}
+              >
+                <View style={styles.chartHeader}>
+                  <View
+                    style={[
+                      styles.iconBadge,
+                      {
+                        backgroundColor: theme.primary + (isDark ? "24" : "18"),
+                        borderColor: theme.primary + "44",
+                      },
+                    ]}
+                  >
+                    <BarChart3 size={18} color={theme.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.chartTitle}>Resumo do Mês</Text>
+                    <Text style={styles.chartSubtitle}>
+                      Comparativo entre ganhos, gastos e investimentos
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.kpiRow}>
+                  <View
+                    style={[
+                      styles.kpiChip,
+                      { borderColor: theme.success + "40" },
+                    ]}
+                  >
+                    <View style={styles.kpiHeader}>
+                      <Wallet size={12} color={theme.success} />
+                      <Text style={styles.kpiLabel}>Ganhos</Text>
+                    </View>
+                    <Text
+                      style={[styles.kpiValue, { color: theme.success }]}
+                      numberOfLines={1}
+                    >
+                      {formatCurrency(totalIncome)}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.kpiChip,
+                      { borderColor: theme.error + "40" },
+                    ]}
+                  >
+                    <View style={styles.kpiHeader}>
+                      <TrendingDown size={12} color={theme.error} />
+                      <Text style={styles.kpiLabel}>Gastos</Text>
+                    </View>
+                    <Text
+                      style={[styles.kpiValue, { color: theme.error }]}
+                      numberOfLines={1}
+                    >
+                      {formatCurrency(totalExpenses)}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.kpiChip,
+                      { borderColor: theme.warning + "40" },
+                    ]}
+                  >
+                    <View style={styles.kpiHeader}>
+                      <TrendingUp size={12} color={theme.warning} />
+                      <Text style={styles.kpiLabel}>Invest.</Text>
+                    </View>
+                    <Text
+                      style={[styles.kpiValue, { color: theme.warning }]}
+                      numberOfLines={1}
+                    >
+                      {formatCurrency(totalInvestments)}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.fixedBarArea}>
+                  {loadingMonth ? (
+                    <ActivityIndicator color={theme.primary} />
+                  ) : (
+                    <BarChart
+                      data={barData}
+                      barWidth={58}
+                      spacing={32}
+                      barBorderRadius={10}
+                      yAxisThickness={0}
+                      xAxisThickness={0}
+                      hideRules
+                      noOfSections={3}
+                      yAxisExtraHeight={28}
+                      xAxisLabelsHeight={22}
+                      yAxisTextStyle={{ color: theme.secondary, fontSize: 10 }}
+                      xAxisLabelTextStyle={{
+                        color: theme.text,
+                        fontSize: 11,
+                        fontWeight: "700",
+                      }}
+                    />
+                  )}
+                </View>
+              </LinearGradient>
+            </View>
+          </Animated.View>
+        </GestureDetector>
+
+        <View style={styles.cardWrapper}>
+          <LinearGradient
+            colors={cardGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.cardInner}
+          >
+            <View style={styles.yearSelectorCard}>
+              <TouchableOpacity
+                style={styles.yearNavBtn}
+                onPress={() => setSelectedYear((y) => y - 1)}
+              >
+                <ChevronLeft size={20} color={theme.primary} />
+              </TouchableOpacity>
+
+              <View style={styles.yearCenterInfo}>
+                <View style={styles.yearBadgeRow}>
+                  <Calendar size={14} color={theme.primary} />
+                  <Text style={[styles.yearBadgeText, { color: theme.primary }]}>
+                    PAINEL ANUAL
+                  </Text>
+                </View>
+                <Text style={styles.yearTitle}>Visão Anual {selectedYear}</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.yearNavBtn}
+                onPress={() => setSelectedYear((y) => y + 1)}
+              >
+                <ChevronRight size={20} color={theme.primary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.kpiRow, { marginBottom: 22 }]}>
+              <View
+                style={[styles.kpiChip, { borderColor: theme.success + "40" }]}
+              >
+                <Text style={styles.kpiLabel}>Ganhos no Ano</Text>
+                <Text
+                  style={[styles.kpiValue, { color: theme.success }]}
+                  numberOfLines={1}
+                >
+                  {formatCurrency(totalsAnuais.income)}
                 </Text>
               </View>
-              <View style={styles.fixedContentArea}>
-                {loadingMonth ? (
-                  <ActivityIndicator color={theme.primary} />
-                ) : (
-                  <>
-                    <PieChart
-                      data={pieData}
-                      donut
-                      radius={105}
-                      innerRadius={75}
-                      innerCircleColor={theme.card}
-                      showGradient
-                      centerLabelComponent={() => (
-                        <View style={{ alignItems: "center" }}>
-                          <Text style={styles.centerValue}>
-                            {totalIncome > 0
-                              ? (
-                                  ((totalExpenses + totalInvestments) /
-                                    totalIncome) *
-                                  100
-                                ).toFixed(0)
-                              : 0}
-                            %
-                          </Text>
-                          <Text style={styles.centerLabel}>Uso da Renda</Text>
-                        </View>
-                      )}
-                    />
-                    <View style={styles.legendGrid}>
-                      {pieData.map((item: ChartData, i: number) => (
-                        <View key={i} style={styles.legendItem}>
-                          <View
-                            style={[
-                              styles.dot,
-                              { backgroundColor: item.color },
-                            ]}
-                          />
-                          <Text style={styles.legendText}>{item.text}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </>
-                )}
+              <View
+                style={[styles.kpiChip, { borderColor: theme.error + "40" }]}
+              >
+                <Text style={styles.kpiLabel}>Gastos no Ano</Text>
+                <Text
+                  style={[styles.kpiValue, { color: theme.error }]}
+                  numberOfLines={1}
+                >
+                  {formatCurrency(totalsAnuais.expense)}
+                </Text>
+              </View>
+              <View
+                style={[styles.kpiChip, { borderColor: theme.warning + "40" }]}
+              >
+                <Text style={styles.kpiLabel}>Invest. no Ano</Text>
+                <Text
+                  style={[styles.kpiValue, { color: theme.warning }]}
+                  numberOfLines={1}
+                >
+                  {formatCurrency(totalsAnuais.investment)}
+                </Text>
               </View>
             </View>
 
-            <View style={styles.chartCard}>
-              <View style={styles.chartHeader}>
-                <BarChart3 size={20} color={theme.primary} />
-                <Text style={styles.chartLabel}>Resumo do Mês</Text>
+            <View style={styles.subCard}>
+              <View style={styles.subChartHeader}>
+                <View
+                  style={[
+                    styles.smallIconBadge,
+                    { backgroundColor: theme.primary + "20" },
+                  ]}
+                >
+                  <LayoutGrid size={15} color={theme.primary} />
+                </View>
+                <Text style={styles.subChartTitle}>
+                  Resumo Consolidado Anual
+                </Text>
               </View>
+
               <View style={styles.fixedBarArea}>
-                {loadingMonth ? (
+                {loadingYear ? (
                   <ActivityIndicator color={theme.primary} />
                 ) : (
                   <BarChart
-                    data={barData}
-                    barWidth={60}
-                    barBorderRadius={8}
+                    data={yearlyConsolidatedData}
+                    barWidth={56}
+                    spacing={30}
+                    barBorderRadius={10}
                     yAxisThickness={0}
                     xAxisThickness={0}
                     hideRules
                     noOfSections={3}
-                    yAxisExtraHeight={25}
+                    yAxisExtraHeight={35}
+                    xAxisLabelsHeight={22}
                     yAxisTextStyle={{ color: theme.secondary, fontSize: 10 }}
                     xAxisLabelTextStyle={{
                       color: theme.text,
                       fontSize: 11,
-                      fontWeight: "bold",
+                      fontWeight: "700",
                     }}
                   />
                 )}
               </View>
             </View>
-          </Animated.View>
-        </GestureDetector>
 
-        <View style={styles.chartCard}>
-          <View style={styles.yearSelector}>
-            <TouchableOpacity onPress={() => setSelectedYear((y) => y - 1)}>
-              <ChevronLeft color={theme.primary} />
-            </TouchableOpacity>
-            <View style={styles.yearTitleRow}>
-              <Calendar size={18} color={theme.primary} />
-              <Text style={styles.yearTitle}>Visão Anual {selectedYear}</Text>
+            <View style={[styles.subCard, { marginTop: 16 }]}>
+              <View style={styles.subChartHeaderBetween}>
+                <View style={styles.subChartHeaderLeft}>
+                  <View
+                    style={[
+                      styles.smallIconBadge,
+                      { backgroundColor: theme.error + "20" },
+                    ]}
+                  >
+                    <TrendingDown size={15} color={theme.error} />
+                  </View>
+                  <Text style={styles.subChartTitle}>Gastos Mensais</Text>
+                </View>
+                <Text style={styles.scrollHint}>Deslize →</Text>
+              </View>
+
+              <View style={styles.fixedYearlyArea}>
+                {loadingYear ? (
+                  <ActivityIndicator
+                    color={theme.primary}
+                    style={{ marginTop: 50 }}
+                  />
+                ) : (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingBottom: 10 }}
+                  >
+                    <BarChart
+                      data={yearlyExpenses}
+                      height={175}
+                      barWidth={50}
+                      spacing={18}
+                      barBorderRadius={8}
+                      hideRules
+                      yAxisThickness={0}
+                      xAxisThickness={0}
+                      yAxisExtraHeight={25}
+                      xAxisLabelsHeight={22}
+                      yAxisTextStyle={{ color: theme.secondary, fontSize: 10 }}
+                      xAxisLabelTextStyle={{
+                        color: theme.text,
+                        fontSize: 10,
+                        fontWeight: "600",
+                      }}
+                    />
+                  </ScrollView>
+                )}
+              </View>
             </View>
-            <TouchableOpacity onPress={() => setSelectedYear((y) => y + 1)}>
-              <ChevronRight color={theme.primary} />
-            </TouchableOpacity>
-          </View>
 
-          <View style={[styles.chartHeader, { marginBottom: 15 }]}>
-            <LayoutGrid size={18} color={theme.primary} />
-            <Text style={[styles.chartLabel, { marginBottom: 0 }]}>
-              Resumo Consolidado Anual
-            </Text>
-          </View>
-          <View style={[styles.fixedBarArea, { marginBottom: 30 }]}>
-            {loadingYear ? (
-              <ActivityIndicator color={theme.primary} />
-            ) : (
-              <BarChart
-                data={yearlyConsolidatedData}
-                barWidth={60}
-                barBorderRadius={8}
-                yAxisThickness={0}
-                xAxisThickness={0}
-                hideRules
-                noOfSections={3}
-                yAxisExtraHeight={35}
-                yAxisTextStyle={{ color: theme.secondary, fontSize: 10 }}
-                xAxisLabelTextStyle={{
-                  color: theme.text,
-                  fontSize: 11,
-                  fontWeight: "bold",
-                }}
-              />
-            )}
-          </View>
+            <View style={[styles.subCard, { marginTop: 16 }]}>
+              <View style={styles.subChartHeaderBetween}>
+                <View style={styles.subChartHeaderLeft}>
+                  <View
+                    style={[
+                      styles.smallIconBadge,
+                      { backgroundColor: theme.warning + "20" },
+                    ]}
+                  >
+                    <TrendingUp size={15} color={theme.warning} />
+                  </View>
+                  <Text style={styles.subChartTitle}>
+                    Investimentos Mensais
+                  </Text>
+                </View>
+                <Text style={styles.scrollHint}>Deslize →</Text>
+              </View>
 
-          <View style={[styles.chartHeader, { marginBottom: 15 }]}>
-            <TrendingDown size={18} color={theme.error} />
-            <Text style={[styles.chartLabel, { marginBottom: 0 }]}>
-              Gastos Mensais
-            </Text>
-          </View>
-          <View style={styles.fixedYearlyArea}>
-            {loadingYear ? (
-              <ActivityIndicator
-                color={theme.primary}
-                style={{ marginTop: 50 }}
-              />
-            ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <BarChart
-                  data={yearlyExpenses}
-                  height={180}
-                  barWidth={55}
-                  spacing={18}
-                  barBorderRadius={6}
-                  hideRules
-                  yAxisThickness={0}
-                  xAxisThickness={0}
-                  yAxisExtraHeight={25}
-                  yAxisTextStyle={{ color: theme.secondary, fontSize: 10 }}
-                  xAxisLabelTextStyle={{ color: theme.text, fontSize: 10 }}
-                />
-              </ScrollView>
-            )}
-          </View>
-
-          <View
-            style={[styles.chartHeader, { marginTop: 40, marginBottom: 15 }]}
-          >
-            <TrendingUp size={18} color={theme.warning} />
-            <Text style={[styles.chartLabel, { marginBottom: 0 }]}>
-              Investimentos Mensais
-            </Text>
-          </View>
-          <View style={styles.fixedYearlyArea}>
-            {loadingYear ? (
-              <ActivityIndicator color={theme.warning} />
-            ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <BarChart
-                  data={yearlyInvestments}
-                  height={180}
-                  barWidth={55}
-                  spacing={18}
-                  barBorderRadius={6}
-                  hideRules
-                  yAxisThickness={0}
-                  xAxisThickness={0}
-                  yAxisExtraHeight={25}
-                  yAxisTextStyle={{ color: theme.secondary, fontSize: 10 }}
-                  xAxisLabelTextStyle={{ color: theme.text, fontSize: 10 }}
-                />
-              </ScrollView>
-            )}
-          </View>
+              <View style={styles.fixedYearlyArea}>
+                {loadingYear ? (
+                  <ActivityIndicator
+                    color={theme.warning}
+                    style={{ marginTop: 50 }}
+                  />
+                ) : (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingBottom: 10 }}
+                  >
+                    <BarChart
+                      data={yearlyInvestments}
+                      height={175}
+                      barWidth={50}
+                      spacing={18}
+                      barBorderRadius={8}
+                      hideRules
+                      yAxisThickness={0}
+                      xAxisThickness={0}
+                      yAxisExtraHeight={25}
+                      xAxisLabelsHeight={22}
+                      yAxisTextStyle={{ color: theme.secondary, fontSize: 10 }}
+                      xAxisLabelTextStyle={{
+                        color: theme.text,
+                        fontSize: 10,
+                        fontWeight: "600",
+                      }}
+                    />
+                  </ScrollView>
+                )}
+              </View>
+            </View>
+          </LinearGradient>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const createStyles = (theme: typeof Colors.light) =>
+const createStyles = (theme: typeof Colors.light, isDark: boolean) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.background },
-    scroll: { padding: 20, paddingBottom: 50 },
-    chartCard: {
+    scroll: { padding: 20, paddingBottom: 60 },
+    cardWrapper: {
       backgroundColor: theme.card,
-      borderRadius: 25,
-      padding: 20,
-      marginBottom: 20,
+      borderRadius: 26,
+      marginBottom: 22,
       borderWidth: 1,
       borderColor: theme.border,
+      overflow: "hidden",
+      elevation: 6,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0.3 : 0.08,
+      shadowRadius: 12,
+    },
+    cardInner: {
+      padding: 20,
+      position: "relative",
+      overflow: "hidden",
+    },
+    decorativeCircle: {
+      position: "absolute",
+      width: 180,
+      height: 180,
+      borderRadius: 90,
+      right: -50,
+      top: -50,
     },
     chartHeader: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 10,
-      marginBottom: 20,
+      gap: 12,
+      marginBottom: 18,
     },
-    chartLabel: { color: theme.secondary, fontSize: 14, fontWeight: "600" },
-    subChartTitle: {
+    iconBadge: {
+      width: 40,
+      height: 40,
+      borderRadius: 13,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+    },
+    chartTitle: {
       color: theme.text,
-      fontSize: 13,
-      fontWeight: "bold",
-      marginBottom: 10,
+      fontSize: 16,
+      fontWeight: "800",
+      letterSpacing: -0.2,
+    },
+    chartSubtitle: {
+      color: theme.secondary,
+      fontSize: 11,
+      marginTop: 2,
     },
     fixedContentArea: {
-      minHeight: 320,
+      minHeight: 300,
       justifyContent: "center",
       alignItems: "center",
     },
-    fixedBarArea: {
-      height: 240,
-      justifyContent: "center",
+    pieWrapper: {
+      paddingVertical: 6,
       alignItems: "center",
-      paddingTop: 10,
+      justifyContent: "center",
     },
-    fixedYearlyArea: { height: 240, paddingTop: 10 },
-    centerValue: { color: theme.primary, fontSize: 22, fontWeight: "bold" },
-    centerLabel: { color: theme.secondary, fontSize: 10 },
+    centerLabelWrap: {
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    centerValue: {
+      fontSize: 26,
+      fontWeight: "900",
+      letterSpacing: -0.5,
+    },
+    centerLabel: {
+      color: theme.secondary,
+      fontSize: 9,
+      fontWeight: "700",
+      letterSpacing: 1,
+      marginTop: 2,
+    },
     legendGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
       justifyContent: "center",
-      gap: 12,
-      marginTop: 20,
+      gap: 8,
+      marginTop: 22,
+      width: "100%",
     },
-    legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+    legendChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 12,
+      borderWidth: 1,
+      maxWidth: "48%",
+    },
     dot: { width: 8, height: 8, borderRadius: 4 },
-    legendText: { color: theme.secondary, fontSize: 10 },
-    yearSelector: {
+    legendText: {
+      color: theme.text,
+      fontSize: 11,
+      fontWeight: "600",
+      flexShrink: 1,
+    },
+    legendPct: {
+      fontSize: 10,
+      fontWeight: "800",
+    },
+    emptyState: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 35,
+      paddingHorizontal: 20,
+    },
+    emptyIconCircle: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 12,
+    },
+    emptyTitle: {
+      color: theme.text,
+      fontSize: 15,
+      fontWeight: "700",
+      marginBottom: 4,
+    },
+    emptySubtitle: {
+      color: theme.secondary,
+      fontSize: 12,
+      textAlign: "center",
+      lineHeight: 17,
+    },
+    kpiRow: {
+      flexDirection: "row",
+      gap: 8,
+      marginBottom: 16,
+    },
+    kpiChip: {
+      flex: 1,
+      backgroundColor: isDark
+        ? "rgba(0, 0, 0, 0.25)"
+        : "rgba(255, 255, 255, 0.85)",
+      borderRadius: 14,
+      paddingVertical: 10,
+      paddingHorizontal: 10,
+      borderWidth: 1,
+      gap: 4,
+    },
+    kpiHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+    },
+    kpiLabel: {
+      color: theme.secondary,
+      fontSize: 10,
+      fontWeight: "600",
+    },
+    kpiValue: {
+      fontSize: 12,
+      fontWeight: "800",
+    },
+    fixedBarArea: {
+      minHeight: 255,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingTop: 10,
+      paddingBottom: 12,
+    },
+    fixedYearlyArea: {
+      minHeight: 250,
+      paddingTop: 10,
+      paddingBottom: 12,
+    },
+    yearSelectorCard: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      marginBottom: 25,
+      backgroundColor: isDark
+        ? "rgba(0, 0, 0, 0.25)"
+        : "rgba(0, 0, 0, 0.03)",
+      borderRadius: 18,
+      padding: 12,
+      marginBottom: 18,
+      borderWidth: 1,
+      borderColor: isDark
+        ? "rgba(255, 255, 255, 0.06)"
+        : "rgba(0, 0, 0, 0.05)",
     },
-    yearTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    yearTitle: { color: theme.text, fontSize: 17, fontWeight: "bold" },
-    barTopValue: { color: theme.secondary, fontSize: 9, marginBottom: 4 },
+    yearNavBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 12,
+      backgroundColor: isDark
+        ? "rgba(255, 255, 255, 0.06)"
+        : "rgba(255, 255, 255, 0.9)",
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    yearCenterInfo: {
+      alignItems: "center",
+      gap: 2,
+    },
+    yearBadgeRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+    },
+    yearBadgeText: {
+      fontSize: 9,
+      fontWeight: "800",
+      letterSpacing: 1.2,
+    },
+    yearTitle: {
+      color: theme.text,
+      fontSize: 18,
+      fontWeight: "800",
+    },
+    subCard: {
+      backgroundColor: isDark
+        ? "rgba(0, 0, 0, 0.22)"
+        : "rgba(255, 255, 255, 0.7)",
+      borderRadius: 20,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: isDark
+        ? "rgba(255, 255, 255, 0.06)"
+        : "rgba(0, 0, 0, 0.05)",
+    },
+    subChartHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      marginBottom: 12,
+    },
+    subChartHeaderBetween: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 12,
+    },
+    subChartHeaderLeft: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
+    smallIconBadge: {
+      width: 30,
+      height: 30,
+      borderRadius: 9,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    subChartTitle: {
+      color: theme.text,
+      fontSize: 14,
+      fontWeight: "700",
+    },
+    scrollHint: {
+      color: theme.secondary,
+      fontSize: 10,
+      fontWeight: "600",
+      opacity: 0.8,
+    },
+    barTopValue: {
+      color: theme.secondary,
+      fontSize: 9,
+      fontWeight: "700",
+      marginBottom: 4,
+    },
   });
