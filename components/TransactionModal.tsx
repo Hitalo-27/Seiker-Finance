@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { X, Trash2 } from 'lucide-react-native';
 import { Category, CategoryType, RepeatMode } from '../types/budget';
-import { ICON_LIST, PRESET_COLORS, getThemeColor } from '../constants/icons';
+import { ICON_LIST } from '../constants/icons';
+import { ColorWheelPicker } from './ColorWheelPicker';
 
 const formatCurrency = (text: string) => {
   const digits = text.replace(/\D/g, "");
@@ -245,37 +246,25 @@ export function TransactionModal({
               <TouchableOpacity
                 style={[
                   styles.iconBox,
-                  editItem.icon === item.name && { borderColor: theme.primary },
+                  editItem.icon === item.name && { borderColor: editItem.color || theme.primary },
                 ]}
                 onPress={() => setEditItem({ ...editItem, icon: item.name })}
               >
                 <item.lib
-                  color={editItem.icon === item.name ? theme.primary : theme.secondary}
+                  color={editItem.icon === item.name ? (editItem.color || theme.primary) : theme.secondary}
                   size={22}
                 />
               </TouchableOpacity>
             )}
             keyExtractor={(item) => item.name}
           />
-          <FlatList
-            data={PRESET_COLORS}
-            horizontal
-            style={{ marginTop: 15 }}
-            showsHorizontalScrollIndicator={false}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[
-                  styles.colorCircle,
-                  {
-                    backgroundColor: getThemeColor(item, themeMode),
-                    borderWidth: editItem.color === item ? 3 : 0,
-                    borderColor: theme.text,
-                  },
-                ]}
-                onPress={() => setEditItem({ ...editItem, color: item })}
-              />
-            )}
-            keyExtractor={(item) => item}
+
+          <ColorWheelPicker
+            color={editItem.color || theme.primary}
+            onColorChange={(hex) =>
+              setEditItem((prev) => (prev ? { ...prev, color: hex } : prev))
+            }
+            theme={theme}
           />
 
           <TouchableOpacity
